@@ -1,0 +1,21 @@
+{
+  "name": "vellune-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vellune - Where thoughts take form (Local-first knowledge workspace)",
+  "scripts": {
+    "dev": "concurrently -n \"backend,sync,web\" -c \"blue,cyan,magenta\" \"pnpm dev:backend\" \"pnpm dev:sync\" \"pnpm dev:web\"",
+    "dev:backend": "cargo run -p vellune-api",
+    "dev:sync": "cargo run -p vellune-sync",
+    "dev:workers": "cargo run -p vellune-workers",
+    "dev:web": "pnpm --filter @vellune/web dev",
+    "dev:desktop": "pnpm --filter @vellune/desktop dev",
+    "build": "pnpm --filter \"./apps/*\" build && cargo build --workspace",
+    "db:up": "docker compose -f docker-compose-dev.yml up -d",
+    "db:down": "docker compose -f docker-compose-dev.yml down",
+    "db:logs": "docker compose -f docker-compose-dev.yml logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
