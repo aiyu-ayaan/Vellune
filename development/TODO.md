@@ -81,6 +81,34 @@
 
 ---
 
+### Milestone 5: Brain View — Obsidian-Style Graph (MVP)
+- [ ] `crates/graph`: neighborhood query (`neighbors(page, depth)`), orphan and broken-link listing, tag-group membership.
+- [ ] Graph data export for UI: nodes (pages, tags, unresolved links) and edges, filterable server-side and locally.
+- [ ] **Global graph:** whole-workspace view with zoom, pan, drag, and click-to-open.
+- [ ] **Local graph:** N-hop neighborhood panel for the active note, updated live as links change.
+- [ ] Force-directed layout in a Web Worker so typing never blocks; Canvas/WebGL renderer.
+- [ ] Filters: tags, folders, orphans, attachments, unresolved links, search highlight.
+- [ ] Color groups by tag/folder/query; node size by link count; display settings (forces, labels, arrows).
+- [ ] Progressive loading and level-of-detail; benchmark with 10k+ nodes before claiming targets.
+- [ ] Keyboard and screen-reader access (list fallback of neighbors).
+
+---
+
+### Milestone 6: Vellune MCP Server
+Expose a workspace to AI agents via the [Model Context Protocol](https://modelcontextprotocol.io).
+- [ ] Evaluate the official Rust SDK (`rmcp`) vs. alternatives; record choice in an ADR.
+- [ ] `services/mcp` (`vellune-mcp`) binary:
+  - [ ] **stdio transport** for the local desktop vault (works fully offline, reads local SQLite).
+  - [ ] **Streamable HTTP transport** for cloud workspaces, authenticated with OAuth and scoped tokens.
+- [ ] Tools: `search_pages`, `read_page` (as Markdown), `create_page`, `append_blocks`, `update_block`, `list_backlinks`, `graph_neighbors`, `list_tags`, `get_daily_note`.
+- [ ] Resources: `vellune://page/{id}` (Markdown), `vellune://graph/{id}` (local graph JSON).
+- [ ] Prompts: summarize page, link suggestions, daily review.
+- [ ] Writes go through `crates/editor` transactions so they are undoable and sync like user edits.
+- [ ] Security: read-only mode, per-workspace scopes, server-side ACL on every call, payload limits, audit log of agent writes, no note content in logs.
+- [ ] Integration tests with an MCP client; document setup for Claude Desktop/Claude Code.
+
+---
+
 ## 🚀 Post-MVP Milestones (Future)
 
 ### Phase 2: Native Android Stylus & Inking Engine
@@ -91,7 +119,27 @@
 - [ ] Local SQLite integration on Android with background WorkManager sync.
 
 ### Phase 3: Advanced Collaboration & Knowledge Features
-- [ ] Visual interactive Knowledge Graph view (Force-directed layout).
 - [ ] Asynchronous background OCR and handwriting recognition workers.
 - [ ] PDF embedding, side-by-side annotation, and export pipelines.
 - [ ] Multi-region sync replication and automated snapshot compaction.
+
+### Phase 4: AFFiNE Feature Parity
+Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). Items already covered by MVP milestones are not repeated.
+- [ ] **Page ↔ Edgeless mode:** every doc switchable between document view and whiteboard view of the same blocks.
+- [ ] **Rich blocks:** bulleted/numbered/toggle lists, quotes, callouts, dividers, tables, LaTeX math, bookmarks/link previews, embeds (YouTube, Figma, GitHub), attachments, images with captions.
+- [ ] **Slash menu and inline toolbar:** `/` block insertion, inline formatting, `@` mentions for pages and dates.
+- [ ] **Linked and synced docs:** inline doc links, embedded linked-doc cards, synced (live-transcluded) blocks.
+- [ ] **Databases:** table and kanban views, typed properties (text, number, select, multi-select, date, checkbox, link), filters, sorts, grouping.
+- [ ] **Doc properties:** typed page metadata panel, mapped to frontmatter on export.
+- [ ] **Organization:** tags, collections (saved filters), favorites, folders, trash with restore.
+- [ ] **Journals:** daily notes with calendar navigation (shared with Obsidian daily notes).
+- [ ] **Templates:** page and edgeless templates, template picker.
+- [ ] **Edgeless tools:** frames, presentation mode, mind maps, connectors with routing, shapes, text, pen/highlighter, sticky notes, grouping, alignment, layers.
+- [ ] **Outline panel** and table-of-contents navigation.
+- [ ] **Version history:** browse and restore past snapshots per doc.
+- [ ] **Sharing:** public read-only links, invite members, per-doc permissions.
+- [ ] **Comments:** inline and block comment threads with resolve.
+- [ ] **Import:** Markdown folders, Notion export, HTML, AFFiNE snapshot (where licensing and formats allow).
+- [ ] **Export:** Markdown, HTML, PDF, PNG (edgeless), workspace snapshot.
+- [ ] **Quick search** (Cmd/Ctrl + K) across docs, commands, and recent items.
+- [ ] **Optional AI assistant:** summarize, rewrite, generate mind map; off by default, never required for core editing.
