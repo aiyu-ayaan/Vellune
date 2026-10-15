@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use vellune_domain::{BlockId, PageId};
 
 /// Types of blocks supported in Vellune documents.
+/// Serialized internally tagged (`{"type": "Heading", "level": 1}`) per docs/document-format.md.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum BlockKind {
     Paragraph,
     Heading { level: u8 },
@@ -32,4 +34,21 @@ pub struct Block {
 pub struct Document {
     pub page_id: PageId,
     pub blocks: Vec<Block>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_kind_json_matches_spec() {
+        let kind = BlockKind::Heading { level: 1 };
+        let json = serde_json::to_value(&kind).unwrap();
+        assert_eq!(json, serde_json::json!({"type": "Heading", "level": 1}));
+        assert_eq!(serde_json::from_value::<BlockKind>(json).unwrap(), kind);
+        assert_eq!(
+            serde_json::to_value(BlockKind::Paragraph).unwrap(),
+            serde_json::json!({"type": "Paragraph"})
+        );
+    }
 }
