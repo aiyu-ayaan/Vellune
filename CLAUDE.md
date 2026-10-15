@@ -214,15 +214,16 @@ vellune/
 │   └── workers/                  # Indexing, previews, OCR, exports
 ├── migrations/                   # PostgreSQL migrations
 ├── deploy/                       # Docker, deployment, infrastructure
-├── development/                  # Agent workspace & project roadmap
+├── development/                  # ALL docs, roadmap, and agent workspace
 │   ├── TODO.md                   # Project roadmap and active task lists
-│   └── Docs/                     # Working implementation notes & scratchpads
-├── docs/                         # Canonical project architecture & specs
-│   ├── architecture.md
-│   ├── document-format.md
-│   ├── sync-protocol.md
-│   ├── security.md
-│   └── adr/                      # Architecture decision records
+│   └── Docs/                     # All documentation (no root docs/ folder)
+│       ├── README.md             # Docs index and rules
+│       ├── architecture.md       # Spec
+│       ├── document-format.md    # Spec
+│       ├── sync-protocol.md      # Spec
+│       ├── security.md           # Spec
+│       ├── adr/                  # Architecture decision records
+│       └── notes/                # Working notes, research, benchmarks
 └── tests/
     ├── integration/
     ├── sync/
@@ -758,7 +759,7 @@ When working in this repository:
 11. Do not introduce new infrastructure without explaining the requirement and operational cost.
 12. Measure before optimizing or claiming performance gains.
 13. Never commit credentials, tokens, production data, or secrets.
-14. Update docs and architecture decision records when a significant design choice changes.
+14. Update specs in `development/Docs/` and add an ADR in `development/Docs/adr/` when a significant design choice changes.
 15. State assumptions and tradeoffs in pull requests or implementation summaries.
 16. Run relevant formatting, linting, tests, and build checks; report failures accurately.
 17. Do not claim a feature is complete unless implemented and verified.
@@ -789,12 +790,14 @@ Build fast local editing and reliable data foundations first. Add rich workspace
 
 ## For AI Agents
 
-- **Development Directory (`development/`):**
-  - Track project milestones and active task checklists in [`development/TODO.md`](file:///media/aiyu/550E85595197DBEC/development/vellune/development/TODO.md).
-  - Use [`development/Docs/`](file:///media/aiyu/550E85595197DBEC/development/vellune/development/Docs) for working implementation notes, deep-dive research, and scratchpad documentation.
+- **All documentation lives in `development/` — there is no root `docs/` folder.** Do not create one; do not write docs anywhere else.
+  - Roadmap and task checklists: [`development/TODO.md`](development/TODO.md). Tick tasks off as they land.
+  - Canonical specs: [`development/Docs/`](development/Docs) — `architecture.md`, `document-format.md`, `sync-protocol.md`, `security.md`. Code that changes a contract updates its spec in the same commit.
+  - Architecture decision records: `development/Docs/adr/NNNN-short-title.md`. Supersede, never rewrite, an accepted ADR.
+  - Working notes, research, benchmarks, scratchpads: `development/Docs/notes/` (create on first use).
+  - Index and rules: [`development/Docs/README.md`](development/Docs/README.md).
   - You are free to create any `.md` file inside `development/` to support your task execution.
-- **Canonical Architecture Documentation (`docs/`):**
-  - Permanent system specifications live in root [`docs/`](file:///media/aiyu/550E85595197DBEC/development/vellune/docs) (`architecture.md`, `document-format.md`, `sync-protocol.md`, `security.md`, and `adr/`).
+- **Product scope:** Feature parity target is [AFFiNE](https://github.com/toeverything/affine) (docs + edgeless whiteboard + databases) plus Obsidian-style knowledge features (wikilinks, backlinks, interactive graph view) and an MCP server so AI agents can read and write a workspace. See the matching milestones in `development/TODO.md`.
 - **MVP Focus Policy:**
   - For the MVP, active development focuses on the **Desktop application (Tauri 2)** and the **Web application (React + TS)** alongside the Rust core services.
   - Native Android stylus inking (`apps/android`) is scheduled for Phase 2 (post-MVP).

@@ -108,13 +108,13 @@ vellune/
 │   └── workers/                  # Async background worker tasks
 ├── development/                  # Active developer & AI workspace
 │   ├── TODO.md                   # Task roadmap and milestone checklists
-│   └── Docs/                     # Working implementation notes & research
-├── docs/                         # Canonical project architecture & specs
-│   ├── architecture.md           # System design and request lifecycle
-│   ├── document-format.md        # Canonical data models & block types
-│   ├── sync-protocol.md          # WebSocket protocol specification
-│   ├── security.md               # Tenant isolation, RBAC, and crypto principles
-│   └── adr/                      # Architecture Decision Records (ADRs)
+│   └── Docs/                     # All project documentation
+│       ├── architecture.md       # System design and request lifecycle
+│       ├── document-format.md    # Canonical data models & block types
+│       ├── sync-protocol.md      # WebSocket protocol specification
+│       ├── security.md           # Tenant isolation, RBAC, and crypto principles
+│       ├── adr/                  # Architecture Decision Records (ADRs)
+│       └── notes/                # Working implementation notes & research
 ├── migrations/                   # PostgreSQL database migrations
 ├── docker-compose-dev.yml        # PostgreSQL 16 & Redis 7 development containers
 ├── package.json                  # Root pnpm development scripts
@@ -178,13 +178,13 @@ Or run targeted services individually:
 
 ## 📖 Documentation
 
-Detailed architectural and technical specifications are available in [`docs/`](docs):
+Detailed architectural and technical specifications are available in [`development/Docs/`](development/Docs):
 
-- [**System Architecture**](docs/architecture.md): High-level topology, request lifecycles, and component interactions.
-- [**Document Format Specification**](docs/document-format.md): Blocks, vector stroke coordinates, and Markdown round-trip rules.
-- [**Sync Protocol**](docs/sync-protocol.md): Wire format, causal clocks, WebSocket lifecycle, and recovery.
-- [**Security & Privacy**](docs/security.md): Tenant isolation, RBAC, presigned uploads, and data protection.
-- [**Architecture Decision Records (ADRs)**](docs/adr/0001-modular-monolith-and-rust-core.md): Formal design rationales.
+- [**System Architecture**](development/Docs/architecture.md): High-level topology, request lifecycles, and component interactions.
+- [**Document Format Specification**](development/Docs/document-format.md): Blocks, vector stroke coordinates, and Markdown round-trip rules.
+- [**Sync Protocol**](development/Docs/sync-protocol.md): Wire format, causal clocks, WebSocket lifecycle, and recovery.
+- [**Security & Privacy**](development/Docs/security.md): Tenant isolation, RBAC, presigned uploads, and data protection.
+- [**Architecture Decision Records (ADRs)**](development/Docs/adr/0001-modular-monolith-and-rust-core.md): Formal design rationales.
 
 ---
 

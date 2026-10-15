@@ -1,24 +1,27 @@
-# Vellune Implementation Notes & Scratchpad
+# Vellune Documentation
 
 > **Location:** `development/Docs/`  
-> **Purpose:** Internal implementation notes, architecture scratchpads, and agent research logs.
+> **Purpose:** Single home for all Vellune documentation — canonical specifications, architecture decision records, and working implementation notes.
 
 ---
 
-## Relationship with Root `docs/`
+## Layout
 
-Vellune organizes documentation across two designated directories:
-
-| Directory | Scope & Purpose |
+| Path | Scope & Purpose |
 |---|---|
-| **[`docs/`](file:///media/aiyu/550E85595197DBEC/development/vellune/docs)** | **Canonical Project Specifications:** High-level system architecture ([`architecture.md`](file:///media/aiyu/550E85595197DBEC/development/vellune/docs/architecture.md)), canonical document data formats ([`document-format.md`](file:///media/aiyu/550E85595197DBEC/development/vellune/docs/document-format.md)), WebSocket sync contracts ([`sync-protocol.md`](file:///media/aiyu/550E85595197DBEC/development/vellune/docs/sync-protocol.md)), security policies ([`security.md`](file:///media/aiyu/550E85595197DBEC/development/vellune/docs/security.md)), and formal ADRs ([`docs/adr/`](file:///media/aiyu/550E85595197DBEC/development/vellune/docs/adr)). |
-| **`development/Docs/`** | **Working Implementation Notes:** Deep-dive implementation designs, transient research, benchmarking data, protocol experiments, and developer notes. |
-| **[`development/TODO.md`](file:///media/aiyu/550E85595197DBEC/development/vellune/development/TODO.md)** | **Roadmap & Progress:** Active milestones, task checklists, and MVP status tracking (Desktop & Web priority, Android post-MVP). |
+| [`architecture.md`](architecture.md) | **Spec:** System architecture, request lifecycles, component interactions. |
+| [`document-format.md`](document-format.md) | **Spec:** Canonical document model, blocks, vector strokes, Markdown round-trip rules. |
+| [`sync-protocol.md`](sync-protocol.md) | **Spec:** WebSocket sync wire format, cursors, recovery. |
+| [`security.md`](security.md) | **Spec:** Tenant isolation, RBAC, presigned uploads, data protection. |
+| [`adr/`](adr) | **Decisions:** Architecture decision records (`NNNN-short-title.md`). |
+| `notes/` | **Working notes:** Implementation designs, research, benchmarks, experiments. Create on first use. |
+| [`../TODO.md`](../TODO.md) | **Roadmap:** Milestones, task checklists, MVP status. |
 
 ---
 
-## Guidelines for Adding Implementation Notes
+## Rules
 
-1. Feel free to create targeted Markdown documents here (e.g., `sqlite-schema-notes.md`, `tauri-ipc-design.md`, `crdt-benchmarks.md`).
-2. Keep operational notes, WIP architectural explorations, and code snippets here while features are under development.
-3. Once an architecture pattern stabilizes, document the permanent specification in root `docs/` or as an ADR in `docs/adr/`.
+1. Specs (`*.md` at this level) describe the intended contract. Code that changes a contract updates its spec in the same commit.
+2. Significant design choices get a new ADR in `adr/`; never rewrite an accepted ADR — supersede it.
+3. Transient work (WIP designs, research, benchmark logs) goes in `notes/` (e.g. `notes/tauri-ipc-design.md`).
+4. Once a note stabilizes, fold it into the relevant spec or an ADR.

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use vellune_domain::{BlockId, PageId};
 
 /// Types of blocks supported in Vellune documents.
-/// Serialized internally tagged (`{"type": "Heading", "level": 1}`) per docs/document-format.md.
+/// Serialized internally tagged (`{"type": "Heading", "level": 1}`) per development/Docs/document-format.md.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum BlockKind {

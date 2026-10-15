@@ -18,13 +18,13 @@
 ## 📋 Task Breakdown
 
 ### Milestone 0: Project Skeleton & Workspace Setup [COMPLETED]
-- [x] Establish monorepo directory layout (`apps/`, `crates/`, `services/`, `docs/`, `tests/`, `deploy/`).
+- [x] Establish monorepo directory layout (`apps/`, `crates/`, `services/`, `development/`, `tests/`, `deploy/`).
 - [x] Configure Rust root workspace (`Cargo.toml`) with all core crates and services.
 - [x] Verify `cargo check` compiles with 0 errors across all 11 crates and 3 services.
 - [x] Set up pnpm workspace (`pnpm-workspace.yaml`) with `@vellune/web` and `@vellune/desktop`.
 - [x] Add root developer commands (`pnpm dev`, `pnpm dev:backend`, `pnpm dev:web`, `pnpm dev:desktop`, `pnpm db:up`).
 - [x] Configure `docker-compose-dev.yml` with PostgreSQL 16 and Redis 7 healthchecks and volume persistence.
-- [x] Create foundational architecture documentation in `docs/` (`architecture.md`, `document-format.md`, `sync-protocol.md`, `security.md`, and ADR 0001).
+- [x] Create foundational architecture documentation (now in `development/Docs/`: `architecture.md`, `document-format.md`, `sync-protocol.md`, `security.md`, and ADR 0001).
 
 ---
 
