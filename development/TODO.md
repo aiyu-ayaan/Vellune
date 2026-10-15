@@ -28,14 +28,22 @@
 
 ---
 
-### Milestone 1: Core Document Engine & Local Storage (MVP)
-- [ ] Implement SQLite schema and local persistence layer in `crates/storage`.
-- [ ] Connect `crates/editor` transaction commands (insert, delete, reorder blocks) with undo/redo history.
-- [ ] Implement full Obsidian-style Markdown import and export in `crates/markdown`:
-  - [ ] Frontmatter parsing and preservation.
-  - [ ] Bidirectional `[[wikilink]]` extraction and alias resolution.
-- [ ] Implement in-memory and SQLite-backed backlink graph indexing in `crates/graph`.
-- [ ] Unit test document tree mutations, boundary edge cases, and serialization.
+### Milestone 1: Core Document Engine & Local Storage (MVP) [COMPLETED]
+- [x] Implement SQLite schema and local persistence layer in `crates/storage` (`SqliteStore`, schema v1 via `PRAGMA user_version`).
+- [x] Connect `crates/editor` transaction commands (insert, delete, reorder blocks) with undo/redo history (`Transaction::apply`, `History`).
+- [x] Implement Obsidian-style Markdown import and export in `crates/markdown`:
+  - [x] Frontmatter parsing and preservation (raw YAML re-emitted verbatim).
+  - [x] Bidirectional `[[wikilink]]` extraction and alias resolution (`LinkResolver` in `crates/graph`).
+- [x] Implement in-memory (`KnowledgeGraph`) and SQLite-backed (`local_page_links`) backlink graph indexing.
+- [x] Unit test document tree mutations, boundary edge cases, and serialization.
+
+**Known limitations (follow-ups):**
+- [ ] Frontmatter reader handles only top-level `title`/`tags`/`aliases` with flat lists; swap in a YAML parser for nested values.
+- [ ] Inline `#tags` in note bodies are not extracted yet.
+- [ ] Wikilinks inside inline code spans are still extracted (fenced code is skipped).
+- [ ] Adjacent checklist items export separated by blank lines (renders as a loose list).
+- [ ] `save_document` rewrites all blocks of a page; move to per-operation writes with the CRDT/pending-op queue.
+- [ ] SQLite journal/WAL settings left at defaults pending benchmarks.
 
 ---
 
