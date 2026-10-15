@@ -8,3 +8,6 @@ license.workspace = true
 vellune-domain = { workspace = true }
 vellune-document = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+uuid = { workspace = true }
