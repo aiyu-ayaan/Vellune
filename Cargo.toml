@@ -1,0 +1,54 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/domain",
+    "crates/document",
+    "crates/editor",
+    "crates/crdt",
+    "crates/canvas",
+    "crates/markdown",
+    "crates/graph",
+    "crates/search",
+    "crates/storage",
+    "crates/sync-protocol",
+    "crates/api-types",
+    "services/api",
+    "services/sync",
+    "services/workers",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Vellune Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/vellune/vellune"
+
+[workspace.dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async & Runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# Identifiers & Time
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging & Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Internal workspace crates
+vellune-domain = { path = "crates/domain" }
+vellune-document = { path = "crates/document" }
+vellune-editor = { path = "crates/editor" }
+vellune-crdt = { path = "crates/crdt" }
+vellune-canvas = { path = "crates/canvas" }
+vellune-markdown = { path = "crates/markdown" }
+vellune-graph = { path = "crates/graph" }
+vellune-search = { path = "crates/search" }
+vellune-storage = { path = "crates/storage" }
+vellune-sync-protocol = { path = "crates/sync-protocol" }
+vellune-api-types = { path = "crates/api-types" }

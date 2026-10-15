@@ -1,0 +1,11 @@
+[package]
+name = "vellune-workers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+vellune-domain = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

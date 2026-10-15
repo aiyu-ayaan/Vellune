@@ -45,3 +45,15 @@ data/
 *~
 .DS_Store
 Thumbs.db
+
+# Agent & Tool Metadata
+.agents/
+.claude/
+.codex/
+.gemini/
+.codegraph/
+.mcp.json
+GEMINI.md
+skills-lock.json
+
+

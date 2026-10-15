@@ -1,0 +1,11 @@
+[package]
+name = "vellune-markdown"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+vellune-domain = { workspace = true }
+vellune-document = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }

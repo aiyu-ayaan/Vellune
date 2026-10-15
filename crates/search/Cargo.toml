@@ -1,0 +1,9 @@
+[package]
+name = "vellune-search"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+vellune-domain = { workspace = true }
+serde = { workspace = true }
