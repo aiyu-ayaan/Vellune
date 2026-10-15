@@ -184,19 +184,21 @@ Adapt to the actual repository if one already exists. Avoid moving files or intr
 
 ```text
 vellune/
-├── AGENTS.md
-├── README.md
-├── Cargo.toml
+├── AGENTS.md -> CLAUDE.md        # Agent guide symlink
+├── CLAUDE.md                     # Agent guide and instructions
+├── README.md                     # Project overview
+├── Cargo.toml                    # Rust root workspace
+├── package.json                  # Root pnpm dev scripts
+├── pnpm-workspace.yaml           # pnpm workspace definition
+├── docker-compose-dev.yml        # PostgreSQL & Redis dev containers
+├── .env.example                  # Environment configuration template
 ├── apps/
-│   ├── android/                  # Kotlin + Jetpack Compose
-│   ├── desktop/                  # Tauri application
-│   └── web/                      # React + TypeScript
+│   ├── android/                  # Native Android inking (Post-MVP)
+│   ├── desktop/                  # Tauri 2 desktop app (React + TS)
+│   └── web/                      # Web application (React + TS)
 ├── crates/
 │   ├── domain/                   # Core entities and invariants
 │   ├── document/                 # Pages, blocks, document operations
-│   ├── editor/                   # Editing transactions and commands
-│   ├── crdt/                     # CRDT adapter and merge logic
-│   ├── canvas/                   # Geometry, spatial queries, strokes
 │   ├── editor/                   # Editing transactions and commands
 │   ├── crdt/                     # CRDT adapter and merge logic
 │   ├── canvas/                   # Geometry, spatial queries, strokes
@@ -212,7 +214,10 @@ vellune/
 │   └── workers/                  # Indexing, previews, OCR, exports
 ├── migrations/                   # PostgreSQL migrations
 ├── deploy/                       # Docker, deployment, infrastructure
-├── docs/
+├── development/                  # Agent workspace & project roadmap
+│   ├── TODO.md                   # Project roadmap and active task lists
+│   └── Docs/                     # Working implementation notes & scratchpads
+├── docs/                         # Canonical project architecture & specs
 │   ├── architecture.md
 │   ├── document-format.md
 │   ├── sync-protocol.md
@@ -782,28 +787,42 @@ A feature is not done until:
 Build fast local editing and reliable data foundations first. Add rich workspace features and cloud collaboration incrementally. Treat native Android stylus support as a core differentiator, not a wrapper around web drawing.
 
 
-## For AI Agents 
+## For AI Agents
 
-- Have create a @development folder. Use it to tract the progress of the project in @development/todo.md or any implementation notes in @development/docs.
-- For the @development folder, you are free to create any .md file what makes ur work easier.
-- You also have full permission to update the CLAUDE.md file to reflect the current state of the project. You can also create a new file in the @development folder to track your progress.
+- **Development Directory (`development/`):**
+  - Track project milestones and active task checklists in [`development/TODO.md`](file:///media/aiyu/550E85595197DBEC/development/vellune/development/TODO.md).
+  - Use [`development/Docs/`](file:///media/aiyu/550E85595197DBEC/development/vellune/development/Docs) for working implementation notes, deep-dive research, and scratchpad documentation.
+  - You are free to create any `.md` file inside `development/` to support your task execution.
+- **Canonical Architecture Documentation (`docs/`):**
+  - Permanent system specifications live in root [`docs/`](file:///media/aiyu/550E85595197DBEC/development/vellune/docs) (`architecture.md`, `document-format.md`, `sync-protocol.md`, `security.md`, and `adr/`).
+- **MVP Focus Policy:**
+  - For the MVP, active development focuses on the **Desktop application (Tauri 2)** and the **Web application (React + TS)** alongside the Rust core services.
+  - Native Android stylus inking (`apps/android`) is scheduled for Phase 2 (post-MVP).
+- **Updating CLAUDE.md:**
+  - You have full permission to keep `CLAUDE.md` updated with accurate project conventions and instructions.
 
+## Development Commands
 
-## Commit 
+- `pnpm dev`: Start backend API, sync gateway, and web client concurrently.
+- `pnpm dev:backend`: Run the Axum HTTP API service (`cargo run -p vellune-api`).
+- `pnpm dev:sync`: Run the WebSocket real-time sync service (`cargo run -p vellune-sync`).
+- `pnpm dev:workers`: Run the background workers (`cargo run -p vellune-workers`).
+- `pnpm dev:web`: Run the web frontend dev server via Vite (`pnpm --filter @vellune/web dev`).
+- `pnpm dev:desktop`: Run the desktop client dev environment (`pnpm --filter @vellune/desktop dev`).
+- `pnpm db:up`: Start PostgreSQL 16 & Redis 7 via Docker Compose (`docker compose -f docker-compose-dev.yml up -d`).
+- `pnpm db:down`: Stop local dev database containers (`docker compose -f docker-compose-dev.yml down`).
+- `cargo check`: Verify compilation across all Rust workspace crates and services.
 
--- All commits should be in the form of `<type>(<scope>): <subject>` where type is one of the following:
+## Commit Guidelines
 
-- feat: A new feature
-- fix: A bug fix
-- docs: Documentation only changes
-- style: Changes that do not affect the meaning of the code (white-space, formatting,
-    missing semi-colons, etc)
-- refactor: A code change that neither fixes a bug nor adds a feature
-- perf: A code change that improves performance
-- test: Adding missing tests or correcting existing tests
-
-free to add any other type of commit that you think is necessary for the project.
-
-scope is optional and can be anything specifying the place of the commit change. The subject contains a succinct description of the change:
-
-- **AI Agents**: When you are making a commit, you should never add yourself as co-auther. All commit message should be co-auther free.  
+- All commits should follow the conventional commit format: `<type>(<scope>): <subject>` where `type` is one of:
+  - `feat`: A new feature
+  - `fix`: A bug fix
+  - `docs`: Documentation only changes
+  - `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc.)
+  - `refactor`: A code change that neither fixes a bug nor adds a feature
+  - `perf`: A code change that improves performance
+  - `test`: Adding missing tests or correcting existing tests
+  - `chore`: Maintenance, dependencies, workspace config
+- The `scope` is optional and identifies the module or area touched (e.g. `workspace`, `domain`, `api`, `desktop`, `web`).
+- **Important for AI Agents:** Never add yourself or any AI attribution as a co-author. All commit messages must be co-author free.  
