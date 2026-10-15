@@ -1,5 +1,9 @@
 //! Storage and persistence abstractions for local SQLite and cloud PostgreSQL.
 
+pub mod sqlite;
+
+pub use sqlite::SqliteStore;
+
 use vellune_document::Document;
 use vellune_domain::{Page, PageId};
 
