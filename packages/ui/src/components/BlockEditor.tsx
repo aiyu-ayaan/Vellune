@@ -471,6 +471,16 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     if (active) autosize(blockRefs.current[active]);
     autosize(titleRef.current);
   });
+  // A fresh, empty page starts in its title; otherwise the "New doc" button keeps focus and
+  // the next Space or Enter makes another page.
+  useEffect(() => {
+    const fresh = Date.now() - page.createdAt < 3000 && page.blocks.every((b) => !b.text);
+    if (!readOnly && fresh) {
+      titleRef.current?.focus();
+      titleRef.current?.select();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page.id]);
 
   const focusBlock = (id: string, caret?: number) => {
     if (readOnly) return;
