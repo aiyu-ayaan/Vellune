@@ -99,3 +99,18 @@ describe('page <-> yjs', () => {
     expect(docToPage(doc)!.blocks.map((b) => b.text)).toEqual(['z', 'w', 'x']);
   });
 });
+
+describe('ydoc tree fields', () => {
+  it('keeps parentId, folder and order across a round trip', () => {
+    const doc = new Y.Doc();
+    const page = newPage('Child', { parentId: 'f1', order: 3 });
+    pageToDoc(doc, page);
+    const back = docToPage(doc)!;
+    expect(back.parentId).toBe('f1');
+    expect(back.order).toBe(3);
+    const folder = newPage('Folder', { folder: true, blocks: [] });
+    const d2 = new Y.Doc();
+    pageToDoc(d2, folder);
+    expect(docToPage(d2)!.folder).toBe(true);
+  });
+});

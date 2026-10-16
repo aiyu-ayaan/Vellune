@@ -109,6 +109,11 @@ export function docToPage(doc: Y.Doc): Page | null {
     createdAt: m.createdAt ?? Date.now(),
     updatedAt: m.updatedAt ?? Date.now(),
     deletedAt: m.deletedAt,
+    // Tree position: dropping these would flatten the sidebar on other devices, and their next edit
+    // would delete the fields from the shared doc.
+    parentId: m.parentId,
+    folder: m.folder,
+    order: m.order,
     canvas: {
       items: [...doc.getMap<CanvasItem>('canvasItems').values()],
       strokes: [...doc.getMap<Stroke>('strokes').values()],
