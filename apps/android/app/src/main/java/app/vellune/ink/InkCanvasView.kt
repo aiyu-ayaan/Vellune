@@ -10,6 +10,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.os.Build
+import android.text.StaticLayout
+import android.text.TextPaint
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.animation.PathInterpolator
@@ -170,7 +172,25 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
         invalidate()
     }
 
-    fun isDark() = dark
+    // The note's text, laid out on the page at its origin so ink can annotate around it.
+    private val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 30f
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+    }
+    private val bodyPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 16f }
+    private var titleLayout: StaticLayout? = null
+    private var bodyLayout: StaticLayout? = null
+
+    fun setDoc(title: String, body: String, titleColor: Int, bodyColor: Int) {
+        titlePaint.color = titleColor
+        bodyPaint.color = bodyColor
+        titleLayout = title.takeIf { it.isNotBlank() }?.let { layout(it, titlePaint) }
+        bodyLayout = body.takeIf { it.isNotBlank() }?.let { layout(it, bodyPaint) }
+        invalidate()
+    }
+
+    private fun layout(text: String, paint: TextPaint) =
+        StaticLayout.Builder.obtain(text, 0, text.length, paint, DOC_WIDTH.toInt()).setLineSpacing(0f, 1.4f).build()
 
     /** Replaces the page content (strokes built off the main thread with [Brushes.build]). */
     fun setEntries(list: List<InkEntry>) {
@@ -638,6 +658,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
 
         canvas.save()
         canvas.concat(view)
+        drawDoc(canvas)
         val moving = action == Action.Move && (dragDx != 0f || dragDy != 0f)
         for (e in entries.values) {
             // Off-screen strokes are skipped; large pages cost only what is visible.
@@ -656,6 +677,17 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
 
         drawSelectionChrome(canvas)
         drawCursor(canvas)
+    }
+
+    private fun drawDoc(canvas: Canvas) {
+        val t = titleLayout
+        val b = bodyLayout
+        if (t == null && b == null) return
+        canvas.save()
+        canvas.translate(DOC_X, DOC_Y)
+        t?.let { it.draw(canvas); canvas.translate(0f, it.height + 16f) }
+        b?.draw(canvas)
+        canvas.restore()
     }
 
     private val dash = DashPathEffect(floatArrayOf(10f, 8f), 0f)
@@ -744,5 +776,8 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
         private const val ERASER_RADIUS_DP = 12f
         private const val GRID_DP = 32f
         private const val MAX_HISTORY = 200
+        private const val DOC_X = 32f
+        private const val DOC_Y = 96f
+        private const val DOC_WIDTH = 560f
     }
 }
