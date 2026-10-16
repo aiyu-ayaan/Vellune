@@ -1,8 +1,9 @@
-import React from 'react';
-import { ArrowDownLeft, ArrowUpRight, Info } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { ArrowDownLeft, ArrowUpRight, Info, Link2 } from 'lucide-react';
 import { Page } from '../model';
-import { buildIndex } from '../links';
+import { buildIndex, linkMention, unlinkedMentions } from '../links';
 import { store, useStore } from '../store';
+import { useSync } from '../cloud/sync';
 
 export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
   const { pages } = useStore((s) => s);
@@ -10,6 +11,13 @@ export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
 
   const backlinks = index.backlinks.get(page.id) ?? [];
   const outgoingLinks = Array.from(index.outgoing.get(page.id)?.resolved ?? []);
+  const roles = useSync((s) => s.roles);
+  const unlinked = useMemo(() => unlinkedMentions(Object.values(pages), page), [pages, page]);
+  const link = (m: (typeof unlinked)[number]) =>
+    store.updatePage(m.sourceId, (p) => ({
+      ...p,
+      blocks: p.blocks.map((b) => (b.id === m.blockId ? { ...b, text: linkMention(b.text, m.start, m.length, page.title) } : b)),
+    }));
 
   // Calculate word count
   const wordCount = page.blocks
@@ -51,6 +59,40 @@ export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
           })
         )}
       </div>
+
+      {/* Unlinked mentions: the title in plain text elsewhere, one click from becoming a link. */}
+      {unlinked.length > 0 && (
+        <div className="panel-section">
+          <div className="panel-header">
+            <Link2 size={14} />
+            <span>Unlinked mentions ({unlinked.length})</span>
+          </div>
+          {unlinked.map((m) => {
+            const source = pages[m.sourceId];
+            if (!source) return null;
+            return (
+              <div key={`${m.blockId}-${m.start}`} className="backlink-card unlinked" onClick={() => store.open(m.sourceId, 'page')}>
+                <div className="backlink-title">{source.title || 'Untitled'}</div>
+                <div className="backlink-context" title={m.context}>
+                  {m.context}
+                </div>
+                {roles[m.sourceId] !== 'viewer' && (
+                  <button
+                    type="button"
+                    className="unlinked-link"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      link(m);
+                    }}
+                  >
+                    Link
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Outgoing Links */}
       <div className="panel-section">

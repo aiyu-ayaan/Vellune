@@ -219,3 +219,21 @@ describe('nested blocks in Yjs', () => {
     expect(docToPage(doc)?.blocks[1].indent).toBeUndefined();
   });
 });
+
+describe('unlinked mentions', () => {
+  it('finds whole-word mentions outside links and code, and links them', async () => {
+    const { unlinkedMentions, linkMention } = await import('./links');
+    const target = newPage('Vellune', { aliases: ['VL'] });
+    const src = newPage('Notes', {
+      blocks: [
+        newBlock('paragraph', 'I love vellune, see [[Vellune]] and `Vellune` and Vellunes'),
+        newBlock('code', 'Vellune'),
+        newBlock('paragraph', 'Vellune again'),
+      ],
+    });
+    const hits = unlinkedMentions([target, src], target);
+    expect(hits.map((h) => [h.blockId, h.start])).toEqual([[src.blocks[0].id, 7], [src.blocks[2].id, 0]]);
+    expect(linkMention(src.blocks[0].text, 7, 7, 'Vellune')).toBe('I love [[Vellune|vellune]], see [[Vellune]] and `Vellune` and Vellunes');
+    expect(linkMention('Vellune again', 0, 7, 'Vellune')).toBe('[[Vellune]] again');
+  });
+});

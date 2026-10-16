@@ -151,3 +151,46 @@ export function buildGraph(pages: Page[], index: LinkIndex, opts: GraphOptions =
   );
   return { nodes: finalNodes, edges: finalEdges };
 }
+
+export interface UnlinkedMention {
+  sourceId: string;
+  blockId: string;
+  /** Offset and length of the mention in the block text. */
+  start: number;
+  length: number;
+  context: string;
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Plain-text mentions of `target`'s title or aliases in other pages (Obsidian's "unlinked
+ * mentions"): whole words, any case, outside wikilinks, inline code and code blocks.
+ */
+export function unlinkedMentions(pages: Page[], target: Page, limit = 50): UnlinkedMention[] {
+  const names = [target.title, ...target.aliases].map((n) => n.trim()).filter((n) => n.length >= 3);
+  if (!names.length) return [];
+  // Longest name first, so "Rust sync" wins over "Rust" at the same spot.
+  const re = new RegExp(`(?<![\\p{L}\\p{N}_])(${names.sort((a, b) => b.length - a.length).map(escapeRe).join('|')})(?![\\p{L}\\p{N}_])`, 'giu');
+  const out: UnlinkedMention[] = [];
+  for (const p of pages) {
+    if (p.id === target.id || p.deletedAt || p.folder) continue;
+    for (const b of p.blocks) {
+      if (b.kind === 'code' || b.kind === 'image' || b.kind === 'table') continue;
+      // Ranges already inside [[…]] or `…` do not count.
+      const masked = b.text.replace(/\[\[[^\]]*\]\]|`[^`]*`|\[[^\]]*\]\([^)]*\)/g, (m) => ' '.repeat(m.length));
+      for (const m of masked.matchAll(re)) {
+        const s = Math.max(0, m.index! - 40);
+        out.push({ sourceId: p.id, blockId: b.id, start: m.index!, length: m[0].length, context: (s ? '…' : '') + b.text.slice(s, m.index! + m[0].length + 40) });
+        if (out.length >= limit) return out;
+      }
+    }
+  }
+  return out;
+}
+
+/** Block text with the mention turned into a wikilink to `title`, keeping the words as written. */
+export function linkMention(text: string, start: number, length: number, title: string): string {
+  const said = text.slice(start, start + length);
+  return `${text.slice(0, start)}[[${said === title ? title : `${title}|${said}`}]]${text.slice(start + length)}`;
+}
