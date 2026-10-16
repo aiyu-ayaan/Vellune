@@ -75,6 +75,7 @@ The web/desktop client (`packages/ui/src/model.ts`) currently implements these `
 | `code` | fenced block with optional language |
 | `divider` | `---` |
 | `image` | `![alt](src)` on its own line |
+| `file` | `[📎 name](src)` on its own line; `text` is the file name, `src` as for images (any type, 6 MB cap) |
 
 Blocks nest through an optional `indent` (0–6, missing = 0): a block is the child of the nearest block above it with a smaller indent, and may sit at most one level deeper than the block above. A `toggle` folds its children; whether a toggle is folded is a per-device view choice and is not synced. Markdown export indents list items and paragraphs by two spaces per level (a paragraph under a list item is its CommonMark continuation); other kinds export flat and lose their nesting.
 

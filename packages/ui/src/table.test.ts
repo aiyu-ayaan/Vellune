@@ -29,3 +29,13 @@ describe('table blocks', () => {
     expect(parseTable(b[0].text)).toEqual([['A', 'B'], ['1', '2']]);
   });
 });
+
+describe('file blocks', () => {
+  it('round-trip through Markdown as a paperclip link', () => {
+    const page = newPage('F', { blocks: [newBlock('file', 'Report [final].pdf', { src: 'vblob:abc:application/pdf' })] });
+    const md = pageToMarkdown(page);
+    expect(md).toContain('[📎 Report  final .pdf](vblob:abc:application/pdf)');
+    const back = markdownToPage(md, 'x').blocks[0];
+    expect([back.kind, back.src]).toEqual(['file', 'vblob:abc:application/pdf']);
+  });
+});

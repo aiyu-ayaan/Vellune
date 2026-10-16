@@ -61,3 +61,7 @@ The target design for general attachments:
 
 - **Telemetry & Logs:** Production server logs explicitly exclude user note content, document titles, passwords, and authorization tokens.
 - **Audit Trails:** Sensitive administrative operations (member invites, role alterations, workspace deletions) generate tamper-evident audit logs.
+
+### Attachments opened in the browser
+
+File blocks decrypt to a `blob:` URL, which shares the app's origin. Only types that cannot run script (PDF, PNG, JPEG, GIF, WebP, plain text) may open in a tab; every other type, including HTML and SVG, is offered as a download only, because an attachment in a shared page is untrusted content.

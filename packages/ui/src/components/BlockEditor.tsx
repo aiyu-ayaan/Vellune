@@ -30,6 +30,7 @@ import {
   Plus,
   Quote,
   MessageSquare,
+  Paperclip,
   LayoutTemplate,
   Table2,
   Smile,
@@ -41,11 +42,12 @@ import {
   Trash2,
   Type,
 } from 'lucide-react';
-import { INLINE_MAX, isImage, prepareImage, readDataUrl } from '../image';
+import { INLINE_MAX, UPLOAD_MAX, isImage, prepareImage, readDataUrl } from '../image';
 import { uploadBlob } from '../cloud/blobs';
 import { BlobImage } from './BlobImage';
 import { IconPicker } from './PageIcon';
 import { TableBlock } from './TableBlock';
+import { FileBlock } from './FileBlock';
 import { PropsEditor } from './PropsEditor';
 import { CommentBadge, CommentThread, threadOf } from './Comments';
 import { textValues } from '../props';
@@ -490,6 +492,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const pendingFocus = useRef<{ id: string; caret?: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const anyFileInput = useRef<HTMLInputElement>(null);
   const pickTarget = useRef<string | null>(null);
 
   const index = useMemo(() => buildIndex(Object.values(pages)), [pages]);
@@ -567,26 +570,30 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       return [...bs.slice(0, i + 1), ...nb, ...bs.slice(i + 1)];
     });
 
-  /** Insert images after `anchorId` (default: end of page); an empty paragraph there is replaced. */
+  /**
+   * Insert images and file attachments after `anchorId` (default: end of page); an empty paragraph
+   * there is replaced.
+   */
   const addImages = async (files: File[], anchorId?: string) => {
-    if (readOnly) return;
-    const imgs = files.filter(isImage);
+    if (readOnly || !files.length) return;
     // Encrypted upload when the page is in the cloud; otherwise inline, so offline still works.
     const toSrc = async (f: File) => {
-      const data = await prepareImage(f);
+      const data = isImage(f) ? await prepareImage(f) : f.size <= UPLOAD_MAX ? f : null;
       if (!data) return null;
       return (await uploadBlob(page.id, data)) ?? (data.size <= INLINE_MAX ? readDataUrl(data) : null);
     };
-    const urls = await Promise.all(imgs.map(toSrc));
-    const blocks = urls.flatMap((src, i) => (src ? [newBlock('image', imgs[i].name.replace(/\.[^.]+$/, ''), { src })] : []));
-    if (urls.some((u) => !u)) window.alert('Some images were skipped: too large, or too large to keep offline (1.5 MB) until this page syncs.');
+    const urls = await Promise.all(files.map(toSrc));
+    const blocks = urls.flatMap((src, i) =>
+      !src ? [] : isImage(files[i]) ? [newBlock('image', files[i].name.replace(/\.[^.]+$/, ''), { src })] : [newBlock('file', files[i].name, { src })],
+    );
+    if (urls.some((u) => !u)) window.alert('Some files were skipped: over 6 MB, or over 1.5 MB while this page is not synced yet.');
     if (!blocks.length) return;
     update((bs) => {
       const at = anchorId ? bs.findIndex((b) => b.id === anchorId) : bs.length - 1;
       const anchor = bs[at];
       const replace = anchor?.kind === 'paragraph' && anchor.text === '';
       const out = [...bs.slice(0, replace ? at : at + 1), ...blocks, ...bs.slice(at + 1)];
-      return out[out.length - 1].kind === 'image' ? [...out, newBlock()] : out;
+      return ['image', 'file'].includes(out[out.length - 1].kind) ? [...out, newBlock()] : out;
     });
   };
 
@@ -646,6 +653,19 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
           patchBlock(block.id, (b) => ({ ...b, text: ctx.text }));
           pickTarget.current = block.id;
           fileInput.current?.click();
+        },
+      },
+      {
+        id: 'file',
+        label: 'File',
+        hint: 'Attach a PDF or any file',
+        group: B,
+        icon: Paperclip,
+        keywords: 'file attachment pdf upload document attach',
+        run: (block, ctx) => {
+          patchBlock(block.id, (b) => ({ ...b, text: ctx.text }));
+          pickTarget.current = block.id;
+          anyFileInput.current?.click();
         },
       },
       {
@@ -901,7 +921,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   /** Nearest visible text block above (-1) or below (1) block `i`, skipping folded children. */
   const neighbor = (i: number, dir: -1 | 1) => {
     const at = shown.findIndex((b) => b.id === page.blocks[i].id);
-    for (let j = at + dir; j >= 0 && j < shown.length; j += dir) if (!['divider', 'image', 'table'].includes(shown[j].kind)) return shown[j];
+    for (let j = at + dir; j >= 0 && j < shown.length; j += dir) if (!['divider', 'image', 'table', 'file'].includes(shown[j].kind)) return shown[j];
     return undefined;
   };
 
@@ -1034,7 +1054,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       const prev = shown[shown.findIndex((b) => b.id === block.id) - 1];
       if (!prev) return;
       e.preventDefault();
-      if (prev.kind === 'divider' || prev.kind === 'image') {
+      if (prev.kind === 'divider' || prev.kind === 'image' || prev.kind === 'file') {
         update((bs) => bs.filter((b) => b.id !== prev.id));
         pendingFocus.current = { id: block.id, caret: 0 };
         return;
@@ -1051,7 +1071,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
 
     if (e.key === 'Delete' && pos === block.text.length && collapsed) {
       const next = page.blocks[i + 1];
-      if (!next || next.kind === 'table') return;
+      if (!next || next.kind === 'table' || next.kind === 'file' || next.kind === 'image') return;
       e.preventDefault();
       update((bs) => bs.filter((b) => b.id !== next.id).map((b) => (b.id === block.id ? { ...b, text: b.text + next.text } : b)));
       pendingFocus.current = { id: block.id, caret: pos };
@@ -1084,7 +1104,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   };
 
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>, block: Block) => {
-    const pasted = [...e.clipboardData.files].filter(isImage);
+    const pasted = [...e.clipboardData.files];
     if (pasted.length) {
       e.preventDefault();
       void addImages(pasted, block.id);
@@ -1494,6 +1514,16 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
           </section>
 
           <input
+            ref={anyFileInput}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              void addImages([...(e.target.files ?? [])], pickTarget.current ?? undefined);
+              e.target.value = '';
+            }}
+          />
+          <input
             ref={fileInput}
             type="file"
             accept="image/*"
@@ -1539,7 +1569,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       ...(readOnly
                         ? []
                         : ([
-                            { label: 'Edit', icon: Type, onSelect: () => focusBlock(block.id), disabled: ['divider', 'image', 'table'].includes(block.kind) },
+                            { label: 'Edit', icon: Type, onSelect: () => focusBlock(block.id), disabled: ['divider', 'image', 'table', 'file'].includes(block.kind) },
                             {
                               label: 'Insert block below',
                               icon: CornerDownLeft,
@@ -1714,6 +1744,8 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       )
                     ) : block.kind === 'divider' ? (
                       <hr className="block-divider" />
+                    ) : block.kind === 'file' ? (
+                      <FileBlock pageId={page.id} name={block.text} src={block.src} />
                     ) : block.kind === 'table' ? (
                       <TableBlock text={block.text} readOnly={readOnly} onChange={(text) => patchBlock(block.id, (b) => ({ ...b, text }))} />
                     ) : (
