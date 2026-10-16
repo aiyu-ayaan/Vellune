@@ -58,7 +58,7 @@ const Workspace: React.FC = () => {
   const status = useSession((s) => s.status);
   const identity = useSession((s) => s.identity);
   const { pages, activeId, view, loaded, databaseTag } = useStore((s) => s);
-  const [showInspector, setShowInspector] = useState(true);
+  const [showInspector, setShowInspector] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   useEffect(() => {
