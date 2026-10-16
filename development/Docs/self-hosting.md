@@ -47,6 +47,8 @@ Any other proxy (nginx, Traefik, cloud LB) must:
 docker compose exec -T postgres pg_dump -U vellune vellune | gzip > vellune-$(date +%F).sql.gz
 ```
 
+Back up the image store too: the `blobs` volume (`docker run --rm -v deploy_blobs:/b -v "$PWD":/o alpine tar czf /o/blobs-$(date +%F).tgz -C /b .`). Its files are ciphertext sealed with page keys.
+
 Restore into an empty database with `gunzip -c file.sql.gz | docker compose exec -T postgres psql -U vellune vellune`. Back up the `.env` file too (`VELLUNE_SECRET`).
 
 Page titles and content are ciphertext, so a leaked dump does not expose notes. It is also useless without each user's password: the server cannot decrypt anything and cannot reset a password. Losing a password means losing that user's notes.
@@ -66,6 +68,17 @@ Database migrations are embedded in the binary and run on start. Take a backup f
 - Server-side search, previews, and merging of content are not possible by design.
 - Only expose port 80/443 via the proxy; keep PostgreSQL unpublished (the compose file does not publish it).
 - The container runs as a non-root user. `/healthz` returns `ok` and backs the Docker healthcheck.
+
+## Local build (this checkout)
+
+From the repo root, `docker-compose-local.yml` compiles the project and runs it with PostgreSQL:
+
+```sh
+mkdir -p data/images
+docker compose -f docker-compose-local.yml up -d --build
+```
+
+Open `http://localhost:8080`. Images are stored in `./data/images` (bind mount, one folder per page, ciphertext only). The app container runs as `LOCAL_UID:LOCAL_GID` (default `1000:1000`) so that folder stays writable; set both if your user differs (`LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) docker compose ...`). It uses a fixed local `VELLUNE_SECRET` default; set your own if the machine is reachable by others.
 
 ## Known limitations
 

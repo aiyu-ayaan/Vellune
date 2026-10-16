@@ -813,11 +813,12 @@ Build fast local editing and reliable data foundations first. Add rich workspace
 - `pnpm dev:web`: Run the web frontend dev server via Vite (`pnpm --filter @vellune/web dev`).
 - `pnpm dev:desktop`: Run the desktop client dev environment (`pnpm --filter @vellune/desktop dev`).
 - `pnpm db:up`: Start PostgreSQL 16 & Redis 7 via Docker Compose (`docker compose -f docker-compose-dev.yml up -d`).
+- `docker compose -f docker-compose-local.yml up -d --build`: compile this checkout and run web + API + PostgreSQL at `http://localhost:8080`. Run `mkdir -p data/images` first: encrypted image blobs are bind-mounted there.
 - `pnpm db:down`: Stop local dev database containers (`docker compose -f docker-compose-dev.yml down`).
 - `cargo check`: Verify compilation across all Rust workspace crates and services.
 - `pnpm --filter @vellune/ui test`: UI unit tests (model, Markdown, links, E2E crypto, Yjs merge).
 - Admin panel: `http://localhost:3000/admin`. It is not linked from the app UI: open the URL directly. There is no separate admin password: `/admin` shows the normal sign-in screen, and the same email/password works if the account has `is_admin`. The first account registered on a fresh database is admin automatically; admins can promote others in the panel's Users tab. Locked out: `UPDATE users SET is_admin = true WHERE email = '<email>';` via `docker compose -f docker-compose-dev.yml exec postgres psql`.
-- Images: `/image` slash command, paste, or drop files into a note. Stored as `image` blocks with a data URL in `src` (raster downscaled to 1600px, max 1.5 MB); markdown exports as `![alt](data:…)`. Known limit: not yet in object storage (attachments), so large galleries bloat the page.
+- Images: `/image` slash command, paste, or drop files into a note; drag the picture itself to move its block. Cloud pages: the image is sealed with the page key and uploaded to the API blob store (`BLOB_DIR`, default `data/blobs`; `/data/blobs` in Docker), referenced as `vblob:<id>:<mime>` in `src`. Pages not in the cloud keep it inline as a data URL (≤1.5 MB). See `development/Docs/security.md` §3.
 - Organize tree selection: Ctrl/Cmd+click toggles, Shift+click selects a range, Shift+Arrows extends, Ctrl+A selects all, Delete/Backspace moves the selection to trash, Esc clears. Right-click on a multi-selection offers bulk trash. Dragging a selected row moves the whole selection.
 
 ## Commit Guidelines

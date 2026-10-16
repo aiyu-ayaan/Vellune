@@ -29,6 +29,9 @@ services:
       VELLUNE_SECRET: ${VELLUNE_SECRET:?set VELLUNE_SECRET in .env (openssl rand -hex 32)}
       APP_URL: ${APP_URL:?set APP_URL in .env (public origin)}
       RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      # Encrypted image blobs (sealed client-side with each page's key).
+      - blobs:/data/blobs
     ports:
       # Behind Caddy/another proxy, bind to loopback: "127.0.0.1:8080:8080"
       - "${VELLUNE_PORT:-8080}:8080"
@@ -47,5 +50,6 @@ services:
 
 volumes:
   pgdata:
+  blobs:
   # caddy_data:
   # caddy_config:

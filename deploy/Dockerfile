@@ -34,12 +34,14 @@ FROM debian:bookworm-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/* \
- && useradd --system --uid 10001 --no-create-home vellune
+ && useradd --system --uid 10001 --no-create-home vellune \
+ && mkdir -p /data/blobs && chown vellune /data/blobs
 COPY --from=api /vellune-api /usr/local/bin/vellune-api
 COPY --from=web /src/apps/web/dist /srv/vellune/web
 ENV WEB_DIST=/srv/vellune/web \
     SERVER_HOST=0.0.0.0 \
     SERVER_PORT=8080 \
+    BLOB_DIR=/data/blobs \
     RUST_LOG=info
 USER vellune
 EXPOSE 8080

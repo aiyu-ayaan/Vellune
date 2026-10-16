@@ -1,0 +1,45 @@
+# Build this checkout and run the whole app locally: web + API on one origin, plus PostgreSQL.
+#   mkdir -p data/images && docker compose -f docker-compose-local.yml up -d --build
+# Open http://localhost:8080 (admin panel: /admin). Not for production: see deploy/ for that.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vellune
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vellune-local}
+      POSTGRES_DB: vellune
+    volumes:
+      - pgdata_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vellune -d vellune"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  vellune:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    image: vellune:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Run as your host user so the bind-mounted images folder stays writable and owned by you.
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      DATABASE_URL: postgres://vellune:${POSTGRES_PASSWORD:-vellune-local}@postgres:5432/vellune
+      # Local-only default; set your own (openssl rand -hex 32) if this machine is reachable by others.
+      VELLUNE_SECRET: ${VELLUNE_SECRET:-local-only-secret-change-me-0123456789abcdef}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      BLOB_DIR: /data/blobs
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      # Images, encrypted client-side with each page's key: the files here are ciphertext.
+      - ./data/images:/data/blobs
+    ports:
+      - "${VELLUNE_PORT:-8080}:8080"
+
+volumes:
+  pgdata_local:
