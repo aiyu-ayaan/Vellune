@@ -816,7 +816,7 @@ Build fast local editing and reliable data foundations first. Add rich workspace
 - `pnpm db:down`: Stop local dev database containers (`docker compose -f docker-compose-dev.yml down`).
 - `cargo check`: Verify compilation across all Rust workspace crates and services.
 - `pnpm --filter @vellune/ui test`: UI unit tests (model, Markdown, links, E2E crypto, Yjs merge).
-- Admin panel: `http://localhost:3000/admin`. There is no separate admin password: sign in with a normal account that has `is_admin`. The first account registered on a fresh database is admin automatically; admins can promote others in the panel's Users tab. Locked out: `UPDATE users SET is_admin = true WHERE email = '<email>';` via `docker compose -f docker-compose-dev.yml exec postgres psql`.
+- Admin panel: `http://localhost:3000/admin`. It is not linked from the app UI: open the URL directly. There is no separate admin password: `/admin` shows the normal sign-in screen, and the same email/password works if the account has `is_admin`. The first account registered on a fresh database is admin automatically; admins can promote others in the panel's Users tab. Locked out: `UPDATE users SET is_admin = true WHERE email = '<email>';` via `docker compose -f docker-compose-dev.yml exec postgres psql`.
 - Organize tree selection: Ctrl/Cmd+click toggles, Shift+click selects a range, Shift+Arrows extends, Ctrl+A selects all, Delete/Backspace moves the selection to trash, Esc clears. Right-click on a multi-selection offers bulk trash. Dragging a selected row moves the whole selection.
 
 ## Commit Guidelines

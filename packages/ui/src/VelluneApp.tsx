@@ -36,8 +36,8 @@ export const VelluneApp: React.FC = () => {
 
   const share = path.match(/^\/share\/([0-9a-f-]{36})\/?$/i);
   if (share) return <PublicPage pageId={share[1]} rawKey={new URLSearchParams(location.hash.slice(1)).get('k') ?? ''} />;
-  if (path.startsWith('/admin')) return <AdminApp onExit={() => navigate('/')} />;
-  return <Workspace onOpenAdmin={() => navigate('/admin')} />;
+  if (path.startsWith('/admin')) return <AdminRoute />;
+  return <Workspace />;
 };
 
 const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -46,7 +46,15 @@ const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
-const Workspace: React.FC<{ onOpenAdmin: () => void }> = ({ onOpenAdmin }) => {
+/** /admin: same account and password as the app; signed-out visitors get the normal sign-in screen. */
+const AdminRoute: React.FC = () => {
+  const status = useSession((s) => s.status);
+  useEffect(() => { void session.init(); }, []);
+  if (status === 'signed_out') return <LoginScreen />;
+  return <AdminApp key={status === 'loading' ? 'loading' : 'in'} onExit={() => navigate('/')} />;
+};
+
+const Workspace: React.FC = () => {
   const status = useSession((s) => s.status);
   const identity = useSession((s) => s.identity);
   const { pages, activeId, view, loaded, databaseTag } = useStore((s) => s);
@@ -145,7 +153,7 @@ const Workspace: React.FC<{ onOpenAdmin: () => void }> = ({ onOpenAdmin }) => {
   return (
     <div className="vellune-container">
       {/* Navigation Sidebar */}
-      <Sidebar onOpenSearch={() => setShowCommandPalette(true)} onOpenAdmin={onOpenAdmin} />
+      <Sidebar onOpenSearch={() => setShowCommandPalette(true)} />
 
       {/* Main Content Area */}
       <main className="main-content">

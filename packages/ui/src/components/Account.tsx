@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CloudOff, LogIn, LogOut, Shield } from 'lucide-react';
+import { CloudOff, LogIn, LogOut } from 'lucide-react';
 import { session, useSession } from '../cloud/session';
 import { useSync } from '../cloud/sync';
 import { signOut } from '../store';
 import { Avatar } from './ShareMenu';
 import './cloud.css';
 
-/** Sidebar account row: who is signed in, admin link, sign out. */
-export const Account: React.FC<{ onOpenAdmin: () => void }> = ({ onOpenAdmin }) => {
+/** Sidebar account row: who is signed in, sign out. */
+export const Account: React.FC = () => {
   const status = useSession((s) => s.status);
   const user = useSession((s) => s.user);
   const pending = useSync((s) => s.pending);
@@ -47,11 +47,6 @@ export const Account: React.FC<{ onOpenAdmin: () => void }> = ({ onOpenAdmin }) 
       {open && (
         <div className="account-menu" role="menu">
           <div className="meta">{user.email}</div>
-          {user.is_admin && (
-            <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenAdmin(); }}>
-              <Shield size={15} aria-hidden="true" /> Admin panel
-            </button>
-          )}
           {confirm ? (
             <button type="button" role="menuitem" className="danger" onClick={() => void signOut()}>
               <LogOut size={15} aria-hidden="true" /> {pending ? `Discard ${pending} unsynced change${pending > 1 ? 's' : ''} and sign out` : 'Confirm sign out'}

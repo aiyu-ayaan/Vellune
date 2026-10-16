@@ -510,7 +510,7 @@ const RenameInput: React.FC<{ initial: string; onDone: (v: string) => void }> = 
   );
 };
 
-export const Sidebar: React.FC<{ onOpenSearch: () => void; onOpenAdmin: () => void }> = ({ onOpenSearch, onOpenAdmin }) => {
+export const Sidebar: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }) => {
   const { pages, activeId, view, databaseTag } = useStore((s) => s);
   const [theme, setThemeState] = React.useState<Theme>(getTheme());
 
@@ -701,7 +701,7 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void; onOpenAdmin: () => vo
       </div>
 
       <div className="sidebar-bottom">
-        <Account onOpenAdmin={onOpenAdmin} />
+        <Account />
         <button
           type="button"
           className="btn-icon"
