@@ -71,6 +71,7 @@ Every page has its own random AES-256-GCM **page key**. The server sees page IDs
 | `PUT /pages/{id}/members` | owner | `{ user_id, role: 'editor' \| 'viewer', wrapped_key }` | `204` (upsert). |
 | `DELETE /pages/{id}/members/{user_id}` | owner | – | `204`. |
 | `PUT /pages/{id}/public` | owner | `{ public: boolean }` | `204`. Public pages are readable (not writable) by anyone holding the link; the page key travels in the URL fragment (`/share/{id}#k=...`), never to the server. |
+| `GET /pages/{id}/history?after=0&limit=500` | member | – | `{ updates: [{ seq, at, user: { id, name } \| null, payload }], more }`. The encrypted update log for client-side version history (limit ≤ 1000; page with `after` = last `seq`). |
 | `GET /users/lookup?email=` | user | – | `{ id, email, name, public_key }` or `404` (user must have signed up and set keys). |
 
 Server enforcement: only `owner`/`editor` may push updates; `viewer` and public readers are read-only. Revoking a member stops future access; they keep anything already decrypted (no key rotation yet).
@@ -126,13 +127,15 @@ Upgrade authenticates with the session cookie; without one the socket is anonymo
 { type: 'subscribe', page_id, after: number }        // after = last seq applied (0 = from start)
 { type: 'unsubscribe', page_id }
 { type: 'push', page_id, op_id, payload }             // payload = base64(iv[12] || AES-GCM(page key, Yjs update))
+{ type: 'awareness', page_id, payload }               // ≤ 1 KiB; base64(iv || AES-GCM(page key, JSON cursor)); members only, never stored
 { type: 'ping' }
 
 // server -> client
 { type: 'hello', authenticated: boolean }              // first frame on every connection
 { type: 'updates', page_id, updates: [{ seq, payload }], cursor }
 { type: 'ack', page_id, op_id, seq }
-{ type: 'presence', page_id, users: [{ id, name }] }
+{ type: 'presence', page_id, users: [{ id, name }], conns: number[] }   // conns: live connection ids in the room
+{ type: 'awareness', page_id, conn, user: { id, name }, payload }       // a collaborator's cursor; not echoed to its sender
 { type: 'error', code, message, page_id?, op_id? }
 { type: 'pong' }
 ```

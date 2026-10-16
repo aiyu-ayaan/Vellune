@@ -217,3 +217,37 @@ pub async fn lookup(State(st): State<Shared>, user: AuthUser, Query(q): Query<Lo
     let (id, email, name, public_key) = row.ok_or_else(ApiError::not_found)?;
     Ok(Json(json!({ "id": id, "email": email, "name": name, "public_key": public_key })))
 }
+
+#[derive(Deserialize)]
+pub struct HistoryQ {
+    #[serde(default)]
+    after: i64,
+    limit: Option<i64>,
+}
+
+/// Encrypted update log with author and time, for client-side version history. Members only.
+/// The server cannot see what changed; clients decrypt and rebuild each version.
+pub async fn history(State(st): State<Shared>, user: AuthUser, Path(id): Path<Uuid>, Query(q): Query<HistoryQ>) -> ApiResult<Json<Value>> {
+    if role_of(&st.db, id, user.id).await?.is_none() {
+        return Err(ApiError::not_found());
+    }
+    let limit = q.limit.unwrap_or(500).clamp(1, 1000);
+    let rows: Vec<(i64, chrono::DateTime<chrono::Utc>, Option<Uuid>, Option<String>, Vec<u8>)> = sqlx::query_as(
+        "SELECT d.seq, d.created_at, d.user_id, u.name, d.payload FROM document_updates d
+         LEFT JOIN users u ON u.id = d.user_id WHERE d.page_id = $1 AND d.seq > $2 ORDER BY d.seq LIMIT $3",
+    )
+    .bind(id)
+    .bind(q.after.max(0))
+    .bind(limit + 1)
+    .fetch_all(&st.db)
+    .await?;
+    let more = rows.len() as i64 > limit;
+    let updates: Vec<Value> = rows
+        .into_iter()
+        .take(limit as usize)
+        .map(|(seq, at, uid, name, payload)| {
+            json!({ "seq": seq, "at": at, "user": uid.map(|id| json!({ "id": id, "name": name.unwrap_or_default() })), "payload": STANDARD.encode(payload) })
+        })
+        .collect();
+    Ok(Json(json!({ "updates": updates, "more": more })))
+}

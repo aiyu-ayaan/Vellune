@@ -37,11 +37,14 @@ const IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 const RATE_WINDOW: Duration = Duration::from_secs(10);
 const RATE_MAX: u32 = 300;
 const MAX_SUBSCRIPTIONS: usize = 2000;
+const MAX_AWARENESS_BYTES: usize = 1024;
 
 #[derive(Clone)]
 enum RoomEvent {
     Update { seq: i64, payload: Arc<str> },
     Presence(Arc<str>),
+    /// Ephemeral, E2E-encrypted cursor/selection from connection `from`; never stored.
+    Awareness { from: u64, json: Arc<str> },
     CloseAnonymous,
 }
 
@@ -89,7 +92,9 @@ impl Hub {
             .filter(|(id, _)| seen.insert(*id))
             .map(|(id, name)| json!({ "id": id, "name": name }))
             .collect();
-        json!({ "type": "presence", "page_id": page, "users": users }).to_string().into()
+        // Connection ids let clients drop a closed tab's cursor even when the same user has another tab open.
+        let conns: Vec<u64> = room.present.keys().copied().collect();
+        json!({ "type": "presence", "page_id": page, "users": users, "conns": conns }).to_string().into()
     }
 
     fn join(&self, page: Uuid, conn: u64, who: Option<(Uuid, String)>) -> broadcast::Receiver<RoomEvent> {
@@ -129,6 +134,16 @@ impl Hub {
         room.push_lock.clone()
     }
 
+    /// Relay a member's encrypted cursor to the room. Non-members (public readers) cannot send.
+    fn awareness(&self, page: Uuid, conn: u64, payload: &str) -> bool {
+        let rooms = self.rooms.lock().unwrap();
+        let Some(room) = rooms.get(&page) else { return false };
+        let Some((uid, name)) = room.present.get(&conn) else { return false };
+        let json = json!({ "type": "awareness", "page_id": page, "conn": conn, "user": { "id": uid, "name": name }, "payload": payload });
+        let _ = room.tx.send(RoomEvent::Awareness { from: conn, json: json.to_string().into() });
+        true
+    }
+
     fn publish(&self, page: Uuid, seq: i64, payload: Arc<str>) {
         if let Some(r) = self.rooms.lock().unwrap().get(&page) {
             let _ = r.tx.send(RoomEvent::Update { seq, payload });
@@ -142,6 +157,7 @@ enum ClientMsg {
     Subscribe { page_id: Uuid, after: i64 },
     Unsubscribe { page_id: Uuid },
     Push { page_id: Uuid, op_id: Uuid, payload: String },
+    Awareness { page_id: Uuid, payload: String },
     Ping,
 }
 
@@ -240,8 +256,15 @@ async fn connection(st: Shared, socket: WebSocket, user: Option<(Uuid, String)>,
                         };
                         // Public readers are not announced and do not see who is editing.
                         let rx = st.hub.join(page_id, conn, if member { user.clone() } else { None });
-                        let task = forward(st.clone(), out.clone(), page_id, after.max(0), rx, !member);
+                        let task = forward(st.clone(), out.clone(), page_id, after.max(0), rx, !member, conn);
                         subs.insert(page_id, tokio::spawn(task));
+                    }
+                    ClientMsg::Awareness { page_id, payload } => {
+                        if payload.len() > MAX_AWARENESS_BYTES {
+                            send_err(&out, "invalid", "Awareness payload too large", Some(page_id), None).await;
+                        } else if !st.hub.awareness(page_id, conn, &payload) {
+                            send_err(&out, "forbidden", "Subscribe as a member first", Some(page_id), None).await;
+                        }
                     }
                     ClientMsg::Push { page_id, op_id, payload } => {
                         handle_push(&st, &out, user.as_ref().map(|u| u.0), page_id, op_id, payload, max_bytes).await;
@@ -315,7 +338,7 @@ async fn catch_up(st: &Shared, out: &Out, page: Uuid, mut cursor: i64) -> Option
 
 /// Subscription task: replay history after `after`, then stream live events from the room.
 /// `public_reader`: subscribed via the page's public flag rather than membership.
-async fn forward(st: Shared, out: Out, page: Uuid, after: i64, mut rx: broadcast::Receiver<RoomEvent>, public_reader: bool) {
+async fn forward(st: Shared, out: Out, page: Uuid, after: i64, mut rx: broadcast::Receiver<RoomEvent>, public_reader: bool, conn: u64) {
     // `rx` was subscribed before this query, so nothing committed in between is lost.
     let Some(mut cursor) = catch_up(&st, &out, page, after).await else { return };
     loop {
@@ -331,6 +354,12 @@ async fn forward(st: Shared, out: Out, page: Uuid, after: i64, mut rx: broadcast
                 }
             }
             Ok(RoomEvent::Presence(_)) if public_reader => {}
+            Ok(RoomEvent::Awareness { from, .. }) if public_reader || from == conn => {}
+            Ok(RoomEvent::Awareness { json, .. }) => {
+                if out.send(Message::Text(json.to_string())).await.is_err() {
+                    return;
+                }
+            }
             Ok(RoomEvent::Presence(p)) => {
                 if out.send(Message::Text(p.to_string())).await.is_err() {
                     return;

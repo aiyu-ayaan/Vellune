@@ -60,6 +60,7 @@ fn router(state: Shared) -> Router {
         .route("/pages/:id/members", get(pages::members).put(pages::put_member))
         .route("/pages/:id/members/:user_id", delete(pages::remove_member))
         .route("/pages/:id/public", put(pages::set_public))
+        .route("/pages/:id/history", get(pages::history))
         .route("/users/lookup", get(pages::lookup))
         .route("/admin/stats", get(admin::stats))
         .route("/admin/users", get(admin::users))
@@ -90,6 +91,11 @@ fn router(state: Shared) -> Router {
 fn server_secret() -> [u8; 32] {
     match std::env::var("VELLUNE_SECRET") {
         Ok(s) if s.len() >= 32 => Sha256::digest(s.as_bytes()).into(),
+        // A per-process secret changes fake prelogin salts on every restart, which reveals which
+        // emails are registered, so production builds refuse to start without a real one.
+        _ if !cfg!(debug_assertions) => {
+            panic!("VELLUNE_SECRET must be set to at least 32 characters (generate one with `openssl rand -hex 32`)");
+        }
         _ => {
             warn!("VELLUNE_SECRET unset or shorter than 32 chars; using a random per-process secret (dev only)");
             let mut b = [0u8; 32];

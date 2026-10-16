@@ -8,6 +8,8 @@
 > **Implemented wire format (v1):** JSON frames on `GET /api/v1/sync`, served by `vellune-api`. See [`api.md` §5](api.md#5-websocket-sync--get-apiv1sync) and [ADR 0002](adr/0002-e2e-encrypted-sync.md).
 > - Auth comes from the session cookie on upgrade (honored only for an `APP_URL` or same-origin `Origin`). The server's first frame is `{type:'hello', authenticated}`; a signed-in client that gets `authenticated: false` shows "Sync paused" and stops reconnecting. Anonymous sockets may read public pages only.
 > - Payloads are AES-GCM-encrypted Yjs updates. The server never decodes them.
+> - Live cursors use `awareness` frames: `{blockId, anchor, head}` where anchor/head are Yjs relative positions in the block's `Y.Text` (they stay on the same character through concurrent edits), encrypted with the page key, relayed to the room's other members, never stored. A tab sends `null` on blur; presence `conns` lets peers drop cursors of closed tabs.
+> - Version history is client-side: `GET /pages/{id}/history` returns the encrypted log with author and time; the client decrypts it, groups edits into sessions (5-minute gaps), rebuilds any session's state, and restores by writing it as a new edit (history is never rewritten).
 > - The cursor is the per-update `seq`. Clients persist the cursor, Yjs state, and unacked ops in IndexedDB (`vellune-cloud`), resubscribe with `after = cursor`, and resend pending ops; `op_id` makes the resends idempotent.
 > - The server pings every 30 s and closes after 90 s idle. A client may send at most 300 frames per 10 s. Updates are limited by the admin setting `max_update_bytes`.
 > - Local edits are coalesced for 250 ms per page before they are encrypted and pushed.
