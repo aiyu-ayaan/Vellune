@@ -445,20 +445,6 @@ fun SearchDialog(pages: Map<String, Page>, onDismiss: () -> Unit, onOpen: (Strin
 }
 
 @Composable
-fun RenameDialog(p: Page, onDismiss: () -> Unit, onDone: (String) -> Unit) {
-    var t by rememberSaveable { mutableStateOf(p.title) }
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (p.isFolder) "Rename folder" else "Rename") },
-        text = { OutlinedTextField(t, { t = it }, singleLine = true, shape = MaterialTheme.shapes.large, modifier = Modifier.focusRequester(focus)) },
-        confirmButton = { TextButton({ onDone(t.trim()) }) { Text("Save") } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
-    )
-}
-
-@Composable
 fun MoveDialog(ws: Workspace, p: Page, onDismiss: () -> Unit, onMove: (String?) -> Unit) {
     var q by rememberSaveable { mutableStateOf("") }
     val blocked = remember(p) { ws.descendants(p.id).toSet() + p.id }

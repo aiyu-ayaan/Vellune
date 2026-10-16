@@ -5,6 +5,26 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -136,6 +156,8 @@ fun Sidebar(
     tags: List<String>,
     expanded: Set<String>,
     onExpand: (String, Boolean) -> Unit,
+    renamingId: String?,
+    onRenamed: (Page, String?) -> Unit,
     dynamicColor: Boolean,
     a: SidebarActions,
     modifier: Modifier = Modifier,
@@ -167,7 +189,7 @@ fun Sidebar(
         }
         Column(Modifier.weight(1f).fillMaxHeight().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))) {
             Header(session, sync)
-            PageList(ws, pages, current, tags, expanded, onExpand, a)
+            PageList(ws, pages, current, tags, expanded, onExpand, renamingId, onRenamed, a)
         }
     }
 }
@@ -180,6 +202,8 @@ private fun PageList(
     tags: List<String>,
     expanded: Set<String>,
     onExpand: (String, Boolean) -> Unit,
+    renamingId: String?,
+    onRenamed: (Page, String?) -> Unit,
     a: SidebarActions,
 ) {
     val favorites = remember(pages) { pages.values.filter { it.favorite && it.deletedAt == null && !it.isFolder }.sortedBy { it.displayTitle.lowercase() } }
@@ -187,8 +211,19 @@ private fun PageList(
     val rows = remember(pages, expanded) { flatten(ws, null, 0, expanded) }
     var collapsed by rememberSaveable { mutableStateOf(setOf<String>()) }
     fun toggle(s: String) { collapsed = if (s in collapsed) collapsed - s else collapsed + s }
+    val list = rememberLazyListState()
+    // Renaming happens in the tree: make sure its row is shown and on screen.
+    LaunchedEffect(renamingId, rows) {
+        val row = rows.indexOfFirst { it.page.id == renamingId }
+        if (row < 0) return@LaunchedEffect
+        collapsed = collapsed - "Pages"
+        // Items before the tree: search, the favorites header (+ rows when open), the Pages header.
+        val favs = if (favorites.isEmpty()) 0 else 1 + if ("Favorites" in collapsed) 0 else favorites.size
+        val at = 1 + favs + 1 + row
+        if (list.layoutInfo.visibleItemsInfo.none { it.index == at }) list.animateScrollToItem(at)
+    }
 
-    LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxWidth(), state = list, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 24.dp)) {
         item(key = "search") {
             Surface(
                 onClick = a.search, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -222,7 +257,8 @@ private fun PageList(
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
             items(rows, key = { "tree-" + it.page.id }) { r ->
-                TreeRow(r.page, r.depth, r.page.id == activeId, r.hasKids, r.open, { onExpand(r.page.id, !r.open) }, a, ws, Modifier.animateItem())
+                TreeRow(r.page, r.depth, r.page.id == activeId, r.hasKids, r.open, { onExpand(r.page.id, !r.open) }, a, ws, Modifier.animateItem(),
+                    renaming = r.page.id == renamingId, onRenamed = { onRenamed(r.page, it) })
             }
         }
         if (tags.isNotEmpty()) category("Tags", "Tags" in collapsed, { toggle("Tags") }) {
@@ -440,6 +476,8 @@ private fun TreeRow(
     a: SidebarActions,
     ws: Workspace,
     modifier: Modifier,
+    renaming: Boolean = false,
+    onRenamed: (String?) -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
@@ -481,13 +519,14 @@ private fun TreeRow(
                 },
                 null, Modifier.size(18.dp), tint = fg,
             )
-            Text(
+            if (renaming) InlineName(p.title, onRenamed, Modifier.weight(1f).padding(start = 6.dp, end = 8.dp))
+            else Text(
                 p.displayTitle, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 color = if (selected) colors.onSecondaryContainer else colors.onSurface,
                 fontWeight = if (selected) FontWeight.SemiBold else null,
                 modifier = Modifier.weight(1f).padding(start = 10.dp),
             )
-            IconButton(onClick = { menu = true }, Modifier.size(32.dp).semantics { contentDescription = "More actions for ${p.displayTitle}" }) {
+            if (!renaming) IconButton(onClick = { menu = true }, Modifier.size(32.dp).semantics { contentDescription = "More actions for ${p.displayTitle}" }) {
                 Icon(Icons.Outlined.MoreHoriz, null, Modifier.size(18.dp), tint = colors.onSurfaceVariant)
             }
         }
@@ -519,4 +558,49 @@ private fun TreeRow(
             }
         }
     }
+}
+
+/**
+ * A name edited in place: text selected, keyboard up. Done, tapping elsewhere or closing the panel
+ * saves; Escape cancels (null). Saves at most once.
+ */
+@Composable
+private fun InlineName(title: String, onDone: (String?) -> Unit, modifier: Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalFocusManager.current
+    var value by remember { mutableStateOf(TextFieldValue(title, TextRange(0, title.length))) }
+    var focused by remember { mutableStateOf(false) }
+    var finished by remember { mutableStateOf(false) }
+    fun finish(t: String?) {
+        if (finished) return
+        finished = true
+        onDone(t)
+    }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    // Leaving composition (panel closed, row scrolled away) still keeps what was typed.
+    val latest by rememberUpdatedState(value.text)
+    DisposableEffect(Unit) { onDispose { finish(latest) } }
+    BasicTextField(
+        value = value,
+        onValueChange = { value = it },
+        singleLine = true,
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface),
+        cursorBrush = SolidColor(colors.primary),
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { finish(value.text); keyboard.clearFocus() }),
+        modifier = modifier
+            .focusRequester(focus)
+            .onFocusChanged { if (it.isFocused) focused = true else if (focused) finish(value.text) }
+            .onPreviewKeyEvent { e -> if (e.key == Key.Escape) { finish(null); keyboard.clearFocus(); true } else false }
+            .semantics { contentDescription = "Name" },
+        decorationBox = { inner ->
+            Box(
+                Modifier
+                    .border(1.5.dp, colors.primary, MaterialTheme.shapes.extraSmall)
+                    .background(colors.surfaceContainerHighest, MaterialTheme.shapes.extraSmall)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            ) { inner() }
+        },
+    )
 }

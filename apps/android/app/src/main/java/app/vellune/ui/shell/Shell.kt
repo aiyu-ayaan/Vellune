@@ -59,7 +59,7 @@ fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (B
     var expanded by remember {
         mutableStateOf(app.db.kv("expanded")?.let { j -> JSONArray(j).let { a -> List(a.length()) { a.getString(it) }.toSet() } } ?: emptySet())
     }
-    var renaming by remember { mutableStateOf<Page?>(null) }
+    var renaming by remember { mutableStateOf<String?>(null) }
     var moving by remember { mutableStateOf<Page?>(null) }
     var infoDocked by remember { mutableStateOf(app.db.kv("info_panel") == "1") }
     val panels = remember { PanelsState() }
@@ -85,9 +85,14 @@ fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (B
             newFolder = { parent ->
                 val f = ws.createFolder(parentId = parent)
                 if (parent != null) expanded = expanded + parent
-                renaming = f
+                renaming = f.id
             },
-            rename = { renaming = it },
+            rename = { p ->
+                // Open every folder above it so its row is on screen to edit in place.
+                var up = p.parentId
+                while (up != null) { expanded = expanded + up; up = pages[up]?.parentId }
+                renaming = p.id
+            },
             moveTo = { moving = it },
             signOut = {
                 scope.launch {
@@ -106,6 +111,11 @@ fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (B
                 onExpand = { id, open ->
                     expanded = if (open) expanded + id else expanded - id
                     app.db.setKv("expanded", JSONArray(expanded.toList()).toString())
+                },
+                renamingId = renaming,
+                onRenamed = { p, title ->
+                    if (title != null && title.isNotBlank() && title.trim() != p.title) ws.updatePage(p.id) { it.copy(title = title.trim()) }
+                    renaming = null
                 },
                 dynamicColor = dynamicColor, a = actions,
             )
@@ -160,7 +170,6 @@ fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (B
         nav.searchOpen = false
         nav.open(ws.createPage(title).id)
     })
-    renaming?.let { p -> RenameDialog(p, onDismiss = { renaming = null }) { t -> ws.updatePage(p.id) { it.copy(title = t) }; renaming = null } }
     moving?.let { p -> MoveDialog(ws, p, onDismiss = { moving = null }) { parent -> ws.move(p.id, parent); moving = null } }
 }
 
