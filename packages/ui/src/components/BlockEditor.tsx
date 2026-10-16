@@ -428,7 +428,8 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       return new Set();
     }
   });
-  const toggleFold = (id: string) =>
+  const toggleFold = (id: string) => {
+    setActive(null); // the block being edited may be about to hide
     setCollapsed((c) => {
       const next = new Set(c);
       if (!next.delete(id)) next.add(id);
@@ -439,6 +440,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       }
       return next;
     });
+  };
   const closeIcon = useCallback(() => setIconOpen(false), []);
   const [drag, setDrag] = useState<{ id: string; over?: string; after?: boolean } | null>(null);
   const handleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
