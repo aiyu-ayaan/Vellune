@@ -9,12 +9,18 @@ import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemGestures
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +37,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -110,6 +117,11 @@ fun OverlappingPanels(
         }
 
         val scrim = colors.scrim
+        // System back gestures own the outermost strip; the panels' edge zone starts beyond it.
+        val gestures = WindowInsets.systemGestures
+        val dir = LocalLayoutDirection.current
+        val zone = with(density) { 40.dp.toPx() }
+        val edges = gestures.getLeft(density, dir) + zone to gestures.getRight(density, dir) + zone
         Box(
             Modifier
                 .zIndex(2f)
@@ -121,6 +133,7 @@ fun OverlappingPanels(
                     clip = f > 0f
                     shadowElevation = 12.dp.toPx() * f
                 }
+                .edgeSwipe(state, enabled = gesturesEnabled, hasEnd = hasEnd, edges = edges, settle = { target -> scope.launch { state.open(target) } })
                 .anchoredDraggable(
                     state.drag,
                     Orientation.Horizontal,
@@ -144,3 +157,49 @@ fun OverlappingPanels(
         }
     }
 }
+
+/**
+ * Swipes that start near either edge belong to the panels even over content that pans itself
+ * (the brain view): claimed in the Initial pass, before children see the drag.
+ */
+private fun Modifier.edgeSwipe(state: PanelsState, enabled: Boolean, hasEnd: Boolean, edges: Pair<Float, Float>, settle: (Panel) -> Unit) =
+    if (!enabled) this else pointerInput(hasEnd, edges) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (state.offset != 0f) return@awaitEachGesture
+            val fromStart = down.position.x < edges.first
+            val fromEnd = hasEnd && down.position.x > size.width - edges.second
+            if (!fromStart && !fromEnd) return@awaitEachGesture
+            var dx = 0f
+            var dy = 0f
+            var claimed = false
+            while (true) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                val d = change.positionChange()
+                if (!claimed) {
+                    dx += d.x
+                    dy += d.y
+                    if (abs(dy) > viewConfiguration.touchSlop && abs(dy) > abs(dx)) return@awaitEachGesture
+                    if (abs(dx) > viewConfiguration.touchSlop) {
+                        if ((fromStart && dx < 0) || (fromEnd && dx > 0)) return@awaitEachGesture
+                        claimed = true
+                    }
+                }
+                if (claimed) {
+                    state.drag.dispatchRawDelta(d.x)
+                    change.consume()
+                }
+            }
+            if (claimed) {
+                val o = state.offset
+                settle(
+                    when {
+                        o > 0 && o > size.width * 0.2f -> Panel.Start
+                        o < 0 && -o > size.width * 0.2f -> Panel.End
+                        else -> Panel.Closed
+                    },
+                )
+            }
+        }
+    }

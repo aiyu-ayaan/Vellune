@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -141,15 +142,27 @@ fun StrokeThumbnail(page: Page, modifier: Modifier) {
 fun HomeScreen(ws: Workspace, pages: Map<String, Page>, nav: AppState, onMenu: (() -> Unit)?) {
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var fab by rememberSaveable { mutableStateOf(false) }
-    val recent = remember(pages) { pages.values.filter { it.deletedAt == null && !it.isFolder }.sortedByDescending { it.updatedAt } }
+    val live = remember(pages) { pages.values.filter { it.deletedAt == null && !it.isFolder } }
+    val recent = remember(live) { live.sortedByDescending { it.updatedAt } }
+    val pinned = remember(live) { live.filter { it.favorite }.sortedBy { it.displayTitle.lowercase() } }
+    val greeting = remember {
+        when (java.time.LocalTime.now().hour) {
+            in 5..11 -> "Good morning"
+            in 12..17 -> "Good afternoon"
+            else -> "Good evening"
+        }
+    }
+    val today = remember { java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM")) }
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("Vellune") },
-                subtitle = { Text("Where thoughts take form") },
+                title = { Text(greeting) },
+                subtitle = { Text(today) },
                 navigationIcon = { if (onMenu != null) IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, "Open sidebar") } },
                 actions = { IconButton(onClick = { nav.searchOpen = true }) { Icon(Icons.Outlined.Search, "Search") } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface, scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer),
                 scrollBehavior = scroll,
             )
         },
@@ -170,25 +183,50 @@ fun HomeScreen(ws: Workspace, pages: Map<String, Page>, nav: AppState, onMenu: (
         },
     ) { pad ->
         LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Adaptive(180.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = pad.calculateTopPadding(), bottom = 120.dp),
+            columns = StaggeredGridCells.Adaptive(168.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = pad.calculateTopPadding() + 4.dp, bottom = 120.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalItemSpacing = 12.dp,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().widthIn(max = 1040.dp),
         ) {
             item(span = StaggeredGridItemSpan.FullLine) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
-                    item { AssistChip({ nav.newDoc() }, { Text("New doc") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.NoteAdd, null, Modifier.size(AssistChipDefaults.IconSize)) }) }
-                    item { AssistChip({ nav.newDoc(edgeless = true) }, { Text("New canvas") }, leadingIcon = { Icon(Icons.Outlined.Dashboard, null, Modifier.size(AssistChipDefaults.IconSize)) }) }
-                    item { AssistChip({ nav.open(ws.openToday().id) }, { Text("Journal") }, leadingIcon = { Icon(Icons.Outlined.CalendarToday, null, Modifier.size(AssistChipDefaults.IconSize)) }) }
+                Surface(
+                    onClick = { nav.searchOpen = true }, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                ) {
+                    Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Search your pages", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 14.dp))
+                    }
+                }
+            }
+            item(span = StaggeredGridItemSpan.FullLine) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    QuickAction("New doc", Icons.AutoMirrored.Outlined.NoteAdd, MaterialShapes.Cookie9Sided, MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.onPrimaryContainer, Modifier.weight(1f)) { nav.newDoc() }
+                    QuickAction("Canvas", Icons.Outlined.Dashboard, MaterialShapes.Clover4Leaf, MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.colorScheme.onTertiaryContainer, Modifier.weight(1f)) { nav.newDoc(edgeless = true) }
+                    QuickAction("Journal", Icons.Outlined.CalendarToday, MaterialShapes.Sunny, MaterialTheme.colorScheme.secondaryContainer,
+                        MaterialTheme.colorScheme.onSecondaryContainer, Modifier.weight(1f)) { nav.open(ws.openToday().id) }
+                }
+            }
+            if (pinned.isNotEmpty()) {
+                item(span = StaggeredGridItemSpan.FullLine) { SectionLabel("Pinned") }
+                item(span = StaggeredGridItemSpan.FullLine) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(pinned, key = { it.id }) { p ->
+                            AssistChip({ nav.open(p.id) }, { Text(p.displayTitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                leadingIcon = { Icon(if (p.isEdgeless) Icons.Outlined.Dashboard else Icons.Outlined.Description, null, Modifier.size(AssistChipDefaults.IconSize)) },
+                                shape = CircleShape)
+                        }
+                    }
                 }
             }
             if (recent.isEmpty()) {
                 item(span = StaggeredGridItemSpan.FullLine) { EmptyHome() }
             } else {
-                item(span = StaggeredGridItemSpan.FullLine) {
-                    Text("Recent", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 8.dp))
-                }
+                item(span = StaggeredGridItemSpan.FullLine) { SectionLabel("Recent") }
                 items(recent, key = { it.id }) { p -> PageCard(p, Modifier.animateItem()) { nav.open(p.id) } }
             }
         }
@@ -196,42 +234,76 @@ fun HomeScreen(ws: Workspace, pages: Map<String, Page>, nav: AppState, onMenu: (
 }
 
 @Composable
+private fun SectionLabel(text: String) = Text(
+    text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface,
+    modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 2.dp),
+)
+
+@Composable
+private fun QuickAction(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    shape: androidx.graphics.shapes.RoundedPolygon,
+    container: Color,
+    content: Color,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(onClick = onClick, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = modifier) {
+        Column(Modifier.padding(vertical = 16.dp, horizontal = 8.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(52.dp).background(container, shape.toShape()), contentAlignment = Alignment.Center) {
+                Icon(icon, null, Modifier.size(24.dp), tint = content)
+            }
+            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, modifier = Modifier.padding(top = 10.dp))
+        }
+    }
+}
+
+@Composable
 private fun PageCard(p: Page, modifier: Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
     Card(
         onClick = onClick, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLow),
     ) {
-        Column(Modifier.padding(16.dp)) {
-            if (p.canvas.strokes.isNotEmpty()) {
-                StrokeThumbnail(p, Modifier.fillMaxWidth().height(if (p.isEdgeless) 132.dp else 80.dp))
-                Spacer(Modifier.height(12.dp))
+        if (p.canvas.strokes.isNotEmpty()) {
+            Box(Modifier.fillMaxWidth().height(if (p.isEdgeless) 132.dp else 96.dp).background(colors.surfaceContainerLowest).padding(12.dp)) {
+                StrokeThumbnail(p, Modifier.fillMaxSize())
             }
+        }
+        Column(Modifier.padding(16.dp)) {
             Text(p.displayTitle, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val ex = p.excerpt()
             if (ex.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(ex, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                Text(ex, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 4, overflow = TextOverflow.Ellipsis)
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (p.isEdgeless) Icons.Outlined.Dashboard else Icons.Outlined.Description, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                Icon(if (p.isEdgeless) Icons.Outlined.Dashboard else Icons.Outlined.Description, null, Modifier.size(14.dp), tint = colors.primary)
                 Text(DateUtils.getRelativeTimeSpanString(p.updatedAt).toString(), style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(start = 6.dp))
+                    color = colors.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp))
             }
         }
     }
 }
 
 @Composable
-private fun EmptyHome() = Column(Modifier.fillMaxWidth().padding(vertical = 64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-    Box(Modifier.size(112.dp).background(MaterialTheme.colorScheme.primaryContainer, MaterialShapes.Cookie9Sided.toShape()), contentAlignment = Alignment.Center) {
-        Icon(Icons.Outlined.Description, null, Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+private fun EmptyHome() = EmptyState(Icons.Outlined.Description, "A blank page awaits", "Start a doc, a canvas, or today's journal.")
+
+/** A centered, shape-framed empty state, shared by home and trash. */
+@Composable
+fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String, modifier: Modifier = Modifier) =
+    Column(modifier.fillMaxWidth().padding(vertical = 64.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(112.dp).background(MaterialTheme.colorScheme.primaryContainer, MaterialShapes.Cookie9Sided.toShape()), contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+        Spacer(Modifier.height(20.dp))
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(6.dp))
+        Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
-    Spacer(Modifier.height(20.dp))
-    Text("A blank page awaits", style = MaterialTheme.typography.headlineSmall)
-    Spacer(Modifier.height(6.dp))
-    Text("Start a doc, a canvas, or today's journal.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
 
 @Composable
 fun TrashScreen(ws: Workspace, pages: Map<String, Page>, onMenu: (() -> Unit)?) {
@@ -240,7 +312,7 @@ fun TrashScreen(ws: Workspace, pages: Map<String, Page>, onMenu: (() -> Unit)?) 
     Scaffold(topBar = { VTopBar({ Text("Trash") }, onMenu) }) { pad ->
         if (trashed.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
-                Text("Trash is empty.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                EmptyState(Icons.Outlined.Delete, "Trash is empty", "Deleted pages wait here until you restore or remove them.")
             }
             return@Scaffold
         }
