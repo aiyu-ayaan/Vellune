@@ -204,3 +204,18 @@ describe('nested blocks', () => {
     expect(shiftIndent(bs, 4, 1)[4].indent).toBe(1);
   });
 });
+
+describe('nested blocks in Yjs', () => {
+  it('keeps indent through the shared document', async () => {
+    const Y = await import('yjs');
+    const { pageToDoc, docToPage } = await import('./cloud/ydoc');
+    const page = newPage('Y', { blocks: [newBlock('toggle', 't'), newBlock('paragraph', 'c', { indent: 1 })] });
+    const doc = new Y.Doc();
+    pageToDoc(doc, page);
+    const copy = new Y.Doc();
+    Y.applyUpdate(copy, Y.encodeStateAsUpdate(doc));
+    expect(docToPage(copy)?.blocks.map((b) => [b.kind, b.indent])).toEqual([['toggle', undefined], ['paragraph', 1]]);
+    pageToDoc(doc, { ...page, blocks: [page.blocks[0], { ...page.blocks[1], indent: undefined }] });
+    expect(docToPage(doc)?.blocks[1].indent).toBeUndefined();
+  });
+});
