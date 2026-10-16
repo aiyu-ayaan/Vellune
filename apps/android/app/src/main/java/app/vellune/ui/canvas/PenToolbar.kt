@@ -130,6 +130,7 @@ fun PenToolbar(
     canRedo: Boolean,
     paletteOpen: Boolean,
     showHistory: Boolean,
+    compact: Boolean,
     onMode: (InkMode) -> Unit,
     onPalette: () -> Unit,
     onUndo: () -> Unit,
@@ -164,8 +165,11 @@ fun PenToolbar(
                     IconButton(onClick = onClearSelection) { Icon(Icons.Outlined.Close, "Clear selection") }
                 }
             } else {
+                // Phones get slightly smaller tool targets so the whole set and the color fit without scrolling.
+                val button = if (compact) 44.dp else 48.dp
+                Row(verticalAlignment = Alignment.CenterVertically) {
                 Row(
-                    Modifier.horizontalScroll(rememberScrollState()),
+                    Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     tools.forEach { t ->
@@ -182,12 +186,14 @@ fun PenToolbar(
                                     checkedContainerColor = MaterialTheme.colorScheme.primary,
                                     checkedContentColor = MaterialTheme.colorScheme.onPrimary,
                                 ),
+                                modifier = Modifier.size(button),
                             ) { Icon(t.icon, t.label) }
                         }
                     }
+                }
                     VerticalDivider(Modifier.height(24.dp).padding(horizontal = 4.dp))
                     val tool = (mode as? InkMode.Draw)?.tool ?: PenTool.Pen
-                    ColorButton(Brushes.displayColor(color, isSystemInDarkTheme(), tool) or (0xFF shl 24), paletteOpen, enabled = mode is InkMode.Draw, onClick = onPalette)
+                    ColorButton(Brushes.displayColor(color, isSystemInDarkTheme(), tool) or (0xFF shl 24), paletteOpen, enabled = mode is InkMode.Draw, size = button, onClick = onPalette)
                     if (showHistory) HistoryButtons(canUndo, canRedo, onUndo, onRedo)
                 }
             }
@@ -215,11 +221,11 @@ private fun Tooltip(label: String, content: @Composable () -> Unit) = TooltipBox
 )
 
 @Composable
-private fun ColorButton(color: Int, open: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun ColorButton(color: Int, open: Boolean, enabled: Boolean, size: androidx.compose.ui.unit.Dp = 48.dp, onClick: () -> Unit) {
     val ring by animateDpAsState(if (open) 3.dp else 2.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "ring")
     Box(
         Modifier
-            .size(48.dp)
+            .size(size)
             .clip(CircleShape)
             .clickable(enabled = enabled, onClick = onClick, role = Role.Button, onClickLabel = "Pen color and size")
             .semantics { contentDescription = "Pen color and size" },

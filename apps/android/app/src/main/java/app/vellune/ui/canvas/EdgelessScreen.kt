@@ -261,7 +261,7 @@ fun EdgelessScreen(app: Vellune, nav: AppState, page: Page, onEditDoc: () -> Uni
         // Zoom controls.
         VerticalFloatingToolbar(
             expanded = true,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 12.dp),
         ) {
             IconButton(onClick = { view.zoomBy(1.25f) }) { Icon(Icons.Outlined.ZoomIn, "Zoom in") }
             Text("${(scale / density * 100).toInt()}%", style = MaterialTheme.typography.labelMedium,
@@ -301,7 +301,7 @@ fun EdgelessScreen(app: Vellune, nav: AppState, page: Page, onEditDoc: () -> Uni
                 }
                 PenToolbar(
                     mode = mode, color = color, inking = inking, selection = selection,
-                    canUndo = canUndo, canRedo = canRedo, paletteOpen = paletteOpen, showHistory = !compact,
+                    canUndo = canUndo, canRedo = canRedo, paletteOpen = paletteOpen, showHistory = !compact, compact = compact,
                     onMode = { m ->
                         paletteOpen = if (m == mode && m is InkMode.Draw) !paletteOpen else false
                         mode = m
