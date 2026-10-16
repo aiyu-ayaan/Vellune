@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Square,
   StickyNote,
+  Type,
   Trash2,
   Undo2,
   ZoomIn,
@@ -21,7 +22,7 @@ import { store, useStore } from '../store';
 import { useSync } from '../cloud/sync';
 import { ShapeKind, shapePoints, strokeHit, strokePath } from '../ink';
 
-type Tool = 'select' | 'sticky' | 'pen' | 'highlighter' | 'shape' | 'eraser';
+type Tool = 'select' | 'sticky' | 'text' | 'pen' | 'highlighter' | 'shape' | 'eraser';
 
 /** The SVG ink layer spans ±INK_SPAN around the origin; paths are shifted back by it. */
 const INK_SPAN = 5000;
@@ -38,7 +39,8 @@ const SHAPES: { kind: ShapeKind; label: string; icon: typeof Square }[] = [
   { kind: 'rect', label: 'Rectangle', icon: Square },
   { kind: 'ellipse', label: 'Ellipse', icon: Circle },
 ];
-const KEYS: Record<string, Tool> = { v: 'select', s: 'sticky', p: 'pen', h: 'highlighter', r: 'shape', e: 'eraser' };
+const KEYS: Record<string, Tool> = { v: 'select', s: 'sticky', t: 'text', p: 'pen', h: 'highlighter', r: 'shape', e: 'eraser' };
+const STICKY_COLORS = ['amber', 'blue', 'green', 'rose'];
 
 /**
  * Same rule as the Android client (Brushes.displayColor): neutral dark ink shows light on a dark
@@ -209,8 +211,11 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
       redo.current = [];
       gesture.current = { kind: 'erase' };
       eraseAt(x, y);
-    } else if (tool === 'sticky') {
-      const item: CanvasItem = { id: newId(), type: 'sticky', x: x - 100, y: y - 75, w: 200, h: 150, text: '', color: 'amber' };
+    } else if (tool === 'sticky' || tool === 'text') {
+      const item: CanvasItem =
+        tool === 'sticky'
+          ? { id: newId(), type: 'sticky', x: x - 100, y: y - 75, w: 200, h: 150, text: '', color: 'amber' }
+          : { id: newId(), type: 'text', x, y: y - 16, w: 280, h: 40, text: '' };
       setCanvas((c) => ({ ...c, items: [...c.items, item] }));
       setSelected(item.id);
       setTool('select');
@@ -281,6 +286,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
     </button>
   );
 
+  const selectedSticky = page.canvas.items.find((i) => i.id === selected && i.type === 'sticky');
   const inkTool = tool === 'pen' || tool === 'highlighter' || tool === 'shape';
   const colors = tool === 'highlighter' ? HIGHLIGHT_COLORS : PEN_COLORS;
   const color = tool === 'highlighter' ? highlightColor : penColor;
@@ -372,6 +378,36 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
               </div>
             );
           }
+          if (item.type === 'text') {
+            return (
+              <div
+                key={item.id}
+                data-item={item.id}
+                className={`canvas-text${sel}`}
+                style={{ left: item.x, top: item.y, width: item.w }}
+                onPointerDown={(e) => grab(e, item)}
+              >
+                <div className="canvas-sticky-grip" aria-hidden="true" />
+                <textarea
+                  value={item.text}
+                  readOnly={readOnly}
+                  placeholder="Text"
+                  aria-label="Canvas text"
+                  rows={Math.max(1, (item.text ?? '').split('\n').length)}
+                  onFocus={() => setSelected(item.id)}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setCanvas((c) => ({ ...c, items: c.items.map((it) => (it.id === item.id ? { ...it, text } : it)) }), false);
+                  }}
+                  onBlur={() => {
+                    // An empty label left behind is removed.
+                    if (!item.text?.trim()) setCanvas((c) => ({ ...c, items: c.items.filter((it) => it.id !== item.id) }), false);
+                  }}
+                  className="canvas-text-input"
+                />
+              </div>
+            );
+          }
           if (item.type === 'embed') {
             const embedded = item.pageId ? pages[item.pageId] : null;
             return (
@@ -395,6 +431,21 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
         })}
       </div>
 
+      {selectedSticky && !readOnly && (
+        <div className="canvas-palette" role="toolbar" aria-label="Sticky color" onPointerDown={(e) => e.stopPropagation()}>
+          {STICKY_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`canvas-swatch canvas-sticky ${c} ${selectedSticky.color === c ? 'active' : ''}`}
+              style={{ position: 'static', padding: 0 }}
+              aria-label={`Sticky color ${c}`}
+              aria-pressed={selectedSticky.color === c}
+              onClick={() => setCanvas((cv) => ({ ...cv, items: cv.items.map((it) => (it.id === selectedSticky.id ? { ...it, color: c } : it)) }))}
+            />
+          ))}
+        </div>
+      )}
       {inkTool && !readOnly && (
         <div className="canvas-palette" role="toolbar" aria-label="Ink options" onPointerDown={(e) => e.stopPropagation()}>
           {tool === 'shape' &&
@@ -446,6 +497,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
         {toolButton('shape', 'Shapes', SHAPES.find((s) => s.kind === shape)!.icon, 'R')}
         {toolButton('eraser', 'Eraser', Eraser, 'E')}
         {toolButton('sticky', 'Sticky note', StickyNote, 'S')}
+        {toolButton('text', 'Text', Type, 'T')}
         <span className="canvas-sep" aria-hidden="true" />
         <button type="button" className="canvas-tool-btn" onClick={() => step(undo, redo)} title="Undo (Ctrl+Z)" aria-label="Undo" disabled={readOnly}>
           <Undo2 size={16} aria-hidden="true" />

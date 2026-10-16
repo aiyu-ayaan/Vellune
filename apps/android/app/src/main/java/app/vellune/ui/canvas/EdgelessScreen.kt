@@ -297,6 +297,7 @@ fun EdgelessScreen(
                 when (item.type) {
                     "note" -> NoteCard(page, item)
                     "embed" -> EmbedCard(ws.pages.value[item.pageId], item)
+                    "text" -> TextLabel(item)
                     else -> StickyCard(item)
                 }
             }
@@ -313,6 +314,7 @@ fun EdgelessScreen(
             items.map { i -> Triple<String, () -> RectF?, Color>(i.id, { itemRects[i.id] }, when (i.type) {
                 "note" -> colors.primary
                 "embed" -> colors.tertiary
+                "text" -> colors.onSurface
                 else -> (STICKY[i.color] ?: STICKY.getValue("amber")).first
             }) } + listOfNotNull(ink?.let { r -> Triple<String, () -> RectF?, Color>("ink", { r }, colors.onSurface) })
         }
@@ -476,6 +478,15 @@ private fun NoteCard(page: Page, item: CanvasItem) {
             }
         }
     }
+}
+
+/** A free text label placed on the web canvas. */
+@Composable
+private fun TextLabel(item: CanvasItem) {
+    Text(
+        item.text.orEmpty().ifEmpty { " " }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.requiredWidth(item.w.toFloat().dp).padding(4.dp),
+    )
 }
 
 @Composable

@@ -25,7 +25,7 @@ export type PropKind = 'text' | 'number' | 'checkbox' | 'date';
 export const propKind = (v: PropValue | undefined): PropKind =>
   typeof v === 'boolean' ? 'checkbox' : typeof v === 'number' ? 'number' : typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? 'date' : 'text';
 
-export type CanvasItemType = 'note' | 'sticky' | 'embed';
+export type CanvasItemType = 'note' | 'sticky' | 'embed' | 'text';
 
 /** Positioned item on a page's edgeless canvas. `note` is the page's own document. */
 export interface CanvasItem {
