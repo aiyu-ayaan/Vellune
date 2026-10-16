@@ -179,14 +179,18 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
   void pages;
 
   // Drop selected rows whose ancestor is also selected: trashing the ancestor already covers them.
-  const trashSelection = (ids: Set<string>) => {
-    const top = [...ids].filter((id) => {
+  const topLevel = (ids: Set<string>) =>
+    rows.map((r) => r.page.id).filter((id) => {
+      if (!ids.has(id)) return false;
       for (let p = pages[id]?.parentId; p; p = pages[p]?.parentId) if (ids.has(p)) return false;
       return true;
     });
-    top.forEach((id) => store.trash(id));
+  const trashSelection = (ids: Set<string>) => {
+    topLevel(ids).forEach((id) => store.trash(id));
     setSel(new Set());
   };
+  /** Rows being dragged: the whole selection when the grabbed row is in it, else just that row. */
+  const dragging = (d: string) => (sel.has(d) ? topLevel(sel) : [d]);
 
   /** Windows-style click: Ctrl/Cmd toggles, Shift selects a range, plain click selects only this row. */
   const select = (e: React.MouseEvent | React.KeyboardEvent, id: string) => {
@@ -266,13 +270,14 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
   };
 
   const valid = (dragId: string, parent: string | null) =>
-    dragId !== parent && !(parent && store.descendants(dragId).includes(parent));
+    dragging(dragId).every((id) => id !== parent && !(parent && store.descendants(id).includes(parent)));
 
   /** Resolve the drop target (new parent + before-sibling) for a row and zone. */
   const resolve = (r: Row, pos: DropPos): { parent: string | null; before?: string } => {
     if (pos === 'inside') return { parent: r.page.id };
     if (pos === 'before') return { parent: r.parent, before: r.page.id };
-    const sibs = store.children(r.parent).filter((p) => p.id !== dragRef.current);
+    const moved = dragging(dragRef.current!);
+    const sibs = store.children(r.parent).filter((p) => !moved.includes(p.id));
     return { parent: r.parent, before: sibs[sibs.findIndex((p) => p.id === r.page.id) + 1]?.id };
   };
 
@@ -286,7 +291,7 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
     const d = dragRef.current;
     if (!d) return;
     const pos = zone(e);
-    if (r.page.id === d || !valid(d, resolve(r, pos).parent)) {
+    if (dragging(d).includes(r.page.id) || !valid(d, resolve(r, pos).parent)) {
       setDrop(null);
       return;
     }
@@ -312,7 +317,12 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
     e.stopPropagation();
     const pos = zone(e);
     const t = resolve(r, pos);
-    if (r.page.id !== d && valid(d, t.parent) && store.move(d, t.parent, t.before) && t.parent) setExp(t.parent, true);
+    const ids = dragging(d);
+    if (!ids.includes(r.page.id) && valid(d, t.parent)) {
+      // Moving each before the same anchor keeps their on-screen order; with no anchor, append in order.
+      const moved = ids.filter((id) => store.move(id, t.parent, t.before));
+      if (moved.length && t.parent) setExp(t.parent, true);
+    }
     clearDrag();
   };
 
@@ -398,7 +408,7 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
             !p.folder && docActive(p.id) ? 'active' : '',
             sel.has(p.id) ? 'selected' : '',
             drop?.id === p.id ? `drop-${drop.pos}` : '',
-            dragRef.current === p.id ? 'dragging' : '',
+            dragRef.current && dragging(dragRef.current).includes(p.id) ? 'dragging' : '',
           ].join(' ');
           return (
             <div
