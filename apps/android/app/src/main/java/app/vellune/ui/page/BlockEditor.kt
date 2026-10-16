@@ -58,6 +58,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardHide
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.automirrored.outlined.FormatIndentDecrease
 import androidx.compose.material.icons.automirrored.outlined.FormatIndentIncrease
@@ -112,6 +113,7 @@ import app.vellune.Vellune
 import app.vellune.core.Block
 import app.vellune.core.LinkIndex
 import app.vellune.core.Page
+import app.vellune.core.dateMentions
 import app.vellune.core.emptyTable
 import app.vellune.core.instantiateTemplate
 import app.vellune.core.isTemplate
@@ -165,6 +167,7 @@ private sealed interface Suggest {
     data class Slash(override val start: Int, override val query: String) : Suggest
     data class Link(override val start: Int, override val query: String) : Suggest
     data class Tag(override val start: Int, override val query: String) : Suggest
+    data class Mention(override val start: Int, override val query: String) : Suggest
 }
 
 /** Which suggestion menu the text before the caret opens (port of inline.ts findTrigger). */
@@ -176,6 +179,7 @@ private fun findTrigger(text: String, caret: Int): Suggest? {
         if (']' !in q && '\n' !in q && q.length <= 60) return Suggest.Link(link, q)
     }
     Regex("""(?:^|[\s​])/([\p{L}\p{N} ]{0,24})$""").find(before)?.let { return Suggest.Slash(it.range.last - it.groupValues[1].length, it.groupValues[1]) }
+    Regex("""(?:^|[\s​])@([\p{L}\p{N}\-]{0,30})$""").find(before)?.let { return Suggest.Mention(it.range.last - it.groupValues[1].length, it.groupValues[1]) }
     Regex("""(?:^|[\s​])#([\p{L}\p{N}_\-/]{0,40})$""").find(before)?.let { return Suggest.Tag(it.range.last - it.groupValues[1].length, it.groupValues[1]) }
     return null
 }
@@ -666,6 +670,17 @@ private fun SuggestMenu(
                     .sortedByDescending { it.updatedAt }.take(8)
                 hits.forEach { p -> DropdownMenuItem({ Text(p.displayTitle) }, { onPick("[[${p.title}]]", null) }) }
                 if (q.isNotEmpty() && index.resolve(q) == null) DropdownMenuItem({ Text("New page “$q”") }, { onPick("[[$q]]", null) }, leadingIcon = { Icon(Icons.Outlined.Add, null) })
+            }
+            is Suggest.Mention -> {
+                val dates = dateMentions(q)
+                dates.forEach { (label, key) ->
+                    DropdownMenuItem({ Text(label) }, { onPick("[[$key]]", null) }, leadingIcon = { Icon(Icons.Outlined.CalendarToday, null) },
+                        trailingIcon = { Text(key, color = MaterialTheme.colorScheme.outline) })
+                }
+                val hits = pages.values.filter { it.deletedAt == null && !it.isFolder && it.title.isNotBlank() && it.title.contains(q, true) }
+                    .sortedByDescending { it.updatedAt }.take(6)
+                hits.forEach { p -> DropdownMenuItem({ Text(p.displayTitle) }, { onPick("[[${p.title}]]", null) }, leadingIcon = { Text(p.icon ?: "📄") }) }
+                if (dates.isEmpty() && hits.isEmpty()) onDismiss()
             }
             is Suggest.Tag -> {
                 val tags = index.tags.keys.filter { q.isEmpty() || it.startsWith(q, true) }.sorted().take(8)

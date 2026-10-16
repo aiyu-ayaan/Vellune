@@ -69,7 +69,13 @@ class Workspace(private val db: LocalDb, private val sync: SyncEngine) : SyncBri
     }
 
     /** Follow a wikilink: the page it resolves to, or a new one with that title. */
-    fun openOrCreate(title: String, index: LinkIndex): Page = index.resolve(title) ?: createPage(title.trim())
+    fun openOrCreate(title: String, index: LinkIndex): Page {
+        index.resolve(title)?.let { return it }
+        val t = title.trim()
+        // A date link (from @today, @friday, …) becomes that day's journal page, as on the web.
+        val day = runCatching { java.time.LocalDate.parse(t) }.getOrNull()
+        return if (day != null) createPage(t) { it.copy(journal = t, tags = listOf("journal")) } else createPage(t)
+    }
 
     fun descendants(id: String): List<String> {
         val out = mutableListOf<String>()

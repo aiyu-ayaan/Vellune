@@ -22,3 +22,15 @@ class TemplatesTest {
         assertNotEquals(tpl.blocks[0].id, b.id)
     }
 }
+
+class DateMentionsTest {
+    private val fri = java.time.LocalDate.of(2026, 10, 16)
+
+    @Test fun relativeDays() = assertEquals(
+        listOf("Today" to "2026-10-16", "Tomorrow" to "2026-10-17", "Yesterday" to "2026-10-15"), dateMentions("", fri))
+
+    @Test fun weekdaysAreTheNextOne() {
+        assertEquals(listOf("Next Monday" to "2026-10-19"), dateMentions("mon", fri))
+        assertEquals(listOf("Next Friday" to "2026-10-23"), dateMentions("fr", fri))
+    }
+}
