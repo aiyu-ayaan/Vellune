@@ -39,3 +39,13 @@ describe('file blocks', () => {
     expect([back.kind, back.src]).toEqual(['file', 'vblob:abc:application/pdf']);
   });
 });
+
+describe('math blocks', () => {
+  it('round-trip as $$ display math, multi-line or one line', () => {
+    const page = newPage('M', { blocks: [newBlock('math', 'a^2 + b^2\n= c^2')] });
+    const md = pageToMarkdown(page);
+    expect(md).toContain('$$\na^2 + b^2\n= c^2\n$$');
+    expect(markdownToPage(md, 'x').blocks.map((b) => [b.kind, b.text])).toEqual([['math', 'a^2 + b^2\n= c^2']]);
+    expect(markdownToPage('$$ e^{i\\pi} $$', 'x').blocks.map((b) => [b.kind, b.text])).toEqual([['math', 'e^{i\\pi}']]);
+  });
+});

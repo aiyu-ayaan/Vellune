@@ -476,3 +476,10 @@
 .page-embed-body h2, .page-embed-body h3, .page-embed-body h4 { margin: 8px 0 4px; }
 .page-embed-body p, .page-embed-body .block { margin: 4px 0; }
 .page-embed-more { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* ---------- math ---------- */
+.math-view { padding: 6px 0; overflow-x: auto; min-height: 28px; cursor: pointer; border-radius: 4px; }
+.math-view.empty { color: var(--text-muted); }
+@media (hover: hover) and (pointer: fine) { .math-view[role='button']:hover { background: var(--bg-hover); } }
+.math-edit { display: flex; flex-direction: column; gap: 4px; }
+.math-edit .math-view { cursor: default; border-top: 1px dashed var(--border-color); }

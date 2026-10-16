@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "highlight.js": "11.11.1",
+    "katex": "0.16.11",
     "lucide-react": "^1.16.0",
     "yjs": "13.6.27"
   },

@@ -5,6 +5,7 @@ import { openPublicPage } from '../cloud/sync';
 import { importPageKey } from '../cloud/crypto';
 import { BlobImage } from './BlobImage';
 import { FileBlock } from './FileBlock';
+import { MathView } from './MathView';
 import { parseInline } from '../inline';
 import { highlightCode } from '../highlight';
 import { depth, listNumber } from '../outline';
@@ -79,6 +80,8 @@ export const ReadOnlyBlocks: React.FC<{
         return <aside key={b.id} className={`${cls} public-callout`}>{t}</aside>;
       case 'code':
         return <pre key={b.id} className={`public-code${mark}`}><code dangerouslySetInnerHTML={{ __html: highlightCode(b.text, b.language) }} /></pre>;
+      case 'math':
+        return <MathView key={b.id} tex={b.text} />;
       case 'file':
         return <FileBlock key={b.id} pageId={page.id} name={b.text} src={b.src} pageKey={pageKey} />;
       case 'image':

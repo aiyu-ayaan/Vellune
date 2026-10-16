@@ -114,6 +114,8 @@ function renderFlat(b: Block): string {
       return '---';
     case 'table':
       return tableToMarkdown(b.text);
+    case 'math':
+      return `$$\n${b.text}\n$$`;
     case 'file':
       return `[📎 ${b.text.replace(/[\[\]\n]/g, ' ')}](${b.src ?? ''})`;
     case 'image':
@@ -144,7 +146,7 @@ export function pageToMarkdown(page: Page): string {
   }
   if (page.extraFrontmatter) yaml += page.extraFrontmatter.endsWith('\n') ? page.extraFrontmatter : `${page.extraFrontmatter}\n`;
 
-  const parts = page.blocks.filter((b) => b.kind === 'code' || b.kind === 'divider' || b.kind === 'table' || ((b.kind === 'image' || b.kind === 'file') && b.src) || b.text !== '').map(renderBlock);
+  const parts = page.blocks.filter((b) => b.kind === 'code' || b.kind === 'divider' || b.kind === 'table' || b.kind === 'math' || ((b.kind === 'image' || b.kind === 'file') && b.src) || b.text !== '').map(renderBlock);
   const { items, strokes } = page.canvas;
   if (items.length || strokes.length) {
     // "-->" only appears inside JSON strings, where \u003e is an equivalent escape.
@@ -263,6 +265,20 @@ function parseBlocks(body: string): { blocks: Block[]; canvas?: Page['canvas'] }
       for (i += 2; i < lines.length && lines[i].trim().startsWith('|'); i++) rows.push(lines[i]);
       i--;
       blocks.push(newBlock('table', markdownToTable(rows)));
+      continue;
+    }
+    if (t.startsWith('$$')) {
+      // Display math: $$ on its own lines, or $$ … $$ on one line.
+      const one = /^\$\$(.+)\$\$$/.exec(t);
+      flush();
+      if (one) {
+        blocks.push(newBlock('math', one[1].trim()));
+        continue;
+      }
+      const tex: string[] = [t.slice(2)].filter(Boolean);
+      for (i++; i < lines.length && !lines[i].trim().endsWith('$$'); i++) tex.push(lines[i]);
+      if (i < lines.length) tex.push(lines[i].trim().slice(0, -2));
+      blocks.push(newBlock('math', tex.join('\n').trim()));
       continue;
     }
     const file = /^\[📎 ([^\]]*)\]\((\S+)\)$/u.exec(t);

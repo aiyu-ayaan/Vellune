@@ -29,6 +29,7 @@ import {
   Minus,
   Plus,
   Quote,
+  Sigma,
   Layers,
   MessageSquare,
   Paperclip,
@@ -50,6 +51,7 @@ import { IconPicker } from './PageIcon';
 import { TableBlock } from './TableBlock';
 import { FileBlock } from './FileBlock';
 import { PageEmbed, embedTarget } from './PageEmbed';
+import { MathView } from './MathView';
 import { PropsEditor } from './PropsEditor';
 import { CommentBadge, CommentThread, threadOf } from './Comments';
 import { textValues } from '../props';
@@ -691,6 +693,25 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         },
       },
       {
+        id: 'math',
+        label: 'Math',
+        hint: 'LaTeX',
+        group: B,
+        icon: Sigma,
+        keywords: 'math latex equation formula katex tex',
+        run: (block, ctx) => {
+          if (ctx.text.trim()) {
+            const m = newBlock('math');
+            patchBlock(block.id, (b) => ({ ...b, text: ctx.text }));
+            insertAfter(block.id, m);
+            focusBlock(m.id, 0);
+          } else {
+            patchBlock(block.id, (b) => ({ ...b, kind: 'math', text: '' }));
+            focusBlock(block.id, 0);
+          }
+        },
+      },
+      {
         id: 'table',
         label: 'Table',
         hint: 'Rows and columns',
@@ -948,7 +969,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     }
     patchBlock(block.id, (b) => ({ ...b, text }));
     autosize(el);
-    const trig = block.kind === 'code' ? null : findTrigger(text, caret);
+    const trig = block.kind === 'code' || block.kind === 'math' ? null : findTrigger(text, caret);
     setMenu(trig ? { ...trig, blockId: block.id, index: menu?.kind === trig.kind && menu.blockId === block.id ? Math.min(menu.index, 50) : 0 } : null);
   };
 
@@ -1042,7 +1063,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     }
 
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-      if (block.kind === 'code' && !mod) return; // newline inside code; Ctrl/Cmd+Enter leaves the block
+      if ((block.kind === 'code' || block.kind === 'math') && !mod) return; // newline inside; Ctrl/Cmd+Enter leaves the block
       if (e.shiftKey) return; // soft line break
       e.preventDefault();
       if (block.text === '' && (LIST_KINDS.includes(block.kind) || block.kind === 'quote' || block.kind === 'callout')) {
@@ -1277,10 +1298,10 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
           ref={(el) => {
             blockRefs.current[block.id] = el;
           }}
-          className={isCode ? 'block-input code-input' : 'block-input'}
+          className={isCode || block.kind === 'math' ? 'block-input code-input' : 'block-input'}
           rows={1}
           value={block.text}
-          spellCheck={!isCode}
+          spellCheck={!isCode && block.kind !== 'math'}
           aria-label={block.kind === 'heading' ? `Heading ${block.level ?? 1}` : 'Block text'}
           aria-autocomplete="list"
           aria-expanded={menu?.blockId === block.id}
@@ -1307,10 +1328,17 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
             setActive((a) => (a === block.id ? null : a));
             setMenu(null);
           }}
-          placeholder={block.kind === 'heading' ? HEADING_PLACEHOLDER[block.level ?? 1] : isCode ? 'Code' : PLACEHOLDER}
+          placeholder={block.kind === 'heading' ? HEADING_PLACEHOLDER[block.level ?? 1] : isCode ? 'Code' : block.kind === 'math' ? 'LaTeX, e.g. e^{i\\pi} + 1 = 0' : PLACEHOLDER}
         />
       );
       const carets = caretsIn(block.id);
+      if (block.kind === 'math')
+        return (
+          <div className="math-edit">
+            {input}
+            <MathView tex={block.text} />
+          </div>
+        );
       if (!isCode) {
         return carets.length ? (
           <>
@@ -1328,6 +1356,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       );
     }
     const lonelyEmpty = page.blocks.length === 1 && block.text === '';
+    if (block.kind === 'math') return <MathView tex={block.text} onClick={readOnly ? undefined : () => focusBlock(block.id)} />;
     const embed = block.kind === 'paragraph' ? embedTarget(block.text) : null;
     if (embed) {
       const target = index.resolve(embed);
