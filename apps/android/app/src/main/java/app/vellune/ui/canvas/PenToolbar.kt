@@ -31,6 +31,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.BorderColor
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.CropSquare
+import androidx.compose.material.icons.outlined.HorizontalRule
+import androidx.compose.material.icons.automirrored.outlined.ArrowRightAlt
+import app.vellune.ink.ShapeKind
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Create
@@ -106,15 +111,34 @@ private val Eraser: ImageVector by lazy {
 
 private data class ToolItem(val mode: InkMode, val label: String, val icon: ImageVector)
 
-private val tools = listOf(
+fun penIcon(t: PenTool): ImageVector = when (t) {
+    PenTool.Pen -> Icons.Outlined.Draw
+    PenTool.Pencil -> Icons.Outlined.Create
+    PenTool.Highlighter -> Icons.Outlined.BorderColor
+}
+
+fun penLabel(t: PenTool) = when (t) { PenTool.Pen -> "Pen"; PenTool.Pencil -> "Pencil"; PenTool.Highlighter -> "Highlighter" }
+
+fun shapeIcon(k: ShapeKind): ImageVector = when (k) {
+    ShapeKind.Line -> Icons.Outlined.HorizontalRule
+    ShapeKind.Arrow -> Icons.AutoMirrored.Outlined.ArrowRightAlt
+    ShapeKind.Rectangle -> Icons.Outlined.CropSquare
+    ShapeKind.Ellipse -> Icons.Outlined.Circle
+}
+
+fun shapeLabel(k: ShapeKind) = when (k) { ShapeKind.Line -> "Line"; ShapeKind.Arrow -> "Arrow"; ShapeKind.Rectangle -> "Rectangle"; ShapeKind.Ellipse -> "Ellipse" }
+
+/** The toolbar's buttons. Pens and shapes are families: the button shows the last one used. */
+private fun tools(pen: PenTool, shape: ShapeKind) = listOf(
     ToolItem(InkMode.Select, "Select", Icons.Outlined.NearMe),
-    ToolItem(InkMode.Draw(PenTool.Pen), "Pen", Icons.Outlined.Draw),
-    ToolItem(InkMode.Draw(PenTool.Pencil), "Pencil", Icons.Outlined.Create),
-    ToolItem(InkMode.Draw(PenTool.Highlighter), "Highlighter", Icons.Outlined.BorderColor),
+    ToolItem(InkMode.Draw(pen), penLabel(pen), penIcon(pen)),
     ToolItem(InkMode.Eraser, "Eraser", Eraser),
+    ToolItem(InkMode.Shape(shape), shapeLabel(shape), shapeIcon(shape)),
     ToolItem(InkMode.Lasso, "Lasso select", Icons.Outlined.HighlightAlt),
     ToolItem(InkMode.Sticky, "Sticky note", Icons.AutoMirrored.Outlined.StickyNote2),
 )
+
+private fun sameFamily(a: InkMode, b: InkMode) = a == b || (a is InkMode.Draw && b is InkMode.Draw) || (a is InkMode.Shape && b is InkMode.Shape)
 
 /**
  * Floating pen toolbar. Swaps to selection actions while strokes are lassoed; fades back while the pen is down so
@@ -131,6 +155,8 @@ fun PenToolbar(
     paletteOpen: Boolean,
     showHistory: Boolean,
     compact: Boolean,
+    lastPen: PenTool,
+    lastShape: ShapeKind,
     onMode: (InkMode) -> Unit,
     onPalette: () -> Unit,
     onUndo: () -> Unit,
@@ -172,8 +198,8 @@ fun PenToolbar(
                     Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    tools.forEach { t ->
-                        val checked = mode == t.mode
+                    tools(lastPen, lastShape).forEach { t ->
+                        val checked = sameFamily(mode, t.mode)
                         Tooltip(t.label) {
                             IconToggleButton(
                                 checked = checked,
@@ -193,7 +219,8 @@ fun PenToolbar(
                 }
                     VerticalDivider(Modifier.height(24.dp).padding(horizontal = 4.dp))
                     val tool = (mode as? InkMode.Draw)?.tool ?: PenTool.Pen
-                    ColorButton(Brushes.displayColor(color, isSystemInDarkTheme(), tool) or (0xFF shl 24), paletteOpen, enabled = mode is InkMode.Draw, size = button, onClick = onPalette)
+                    ColorButton(Brushes.displayColor(color, isSystemInDarkTheme(), tool) or (0xFF shl 24), paletteOpen,
+                        enabled = mode is InkMode.Draw || mode is InkMode.Shape, size = button, onClick = onPalette)
                     if (showHistory) HistoryButtons(canUndo, canRedo, onUndo, onRedo)
                 }
             }
@@ -252,6 +279,7 @@ fun PalettePanel(
     onColor: (Int) -> Unit,
     onSize: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    kinds: (@Composable () -> Unit)? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     Surface(
@@ -262,6 +290,10 @@ fun PalettePanel(
         shadowElevation = 6.dp,
     ) {
         Column(Modifier.padding(20.dp)) {
+            if (kinds != null) {
+                kinds()
+                Spacer(Modifier.height(16.dp))
+            }
             Text("Color", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             InkColors.chunked(5).forEach { row ->
@@ -327,4 +359,31 @@ fun PalettePanel(
 private fun colorName(c: Int) = when (InkColors.indexOf(c)) {
     0 -> "Ink"; 1 -> "Graphite"; 2 -> "Indigo"; 3 -> "Blue"; 4 -> "Teal"
     5 -> "Green"; 6 -> "Yellow"; 7 -> "Orange"; 8 -> "Red"; else -> "Pink"
+}
+
+/** A row of choices inside the palette (pen type or shape), one lifted on a tonal pill. */
+@Composable
+fun <T> KindRow(label: String, options: List<T>, selected: T, icon: (T) -> ImageVector, name: (T) -> String, onPick: (T) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Text(label, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+    Spacer(Modifier.height(8.dp))
+    Row(
+        Modifier.fillMaxWidth().clip(CircleShape).background(colors.surfaceContainerHighest).padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        options.forEach { o ->
+            val on = o == selected
+            Row(
+                Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clip(CircleShape)
+                    .background(if (on) colors.primaryContainer else Color.Transparent)
+                    .clickable(role = Role.RadioButton) { onPick(o) }
+                    .semantics { this.selected = on; contentDescription = name(o) },
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) { Icon(icon(o), null, Modifier.size(20.dp), tint = if (on) colors.onPrimaryContainer else colors.onSurfaceVariant) }
+        }
+    }
 }

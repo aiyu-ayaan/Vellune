@@ -32,7 +32,11 @@ import androidx.ink.strokes.createClosedShape
 import androidx.input.motionprediction.MotionEventPredictor
 import app.vellune.core.Stroke
 import app.vellune.core.newId
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sin
 import androidx.ink.strokes.Stroke as InkStroke
 
 /** What a pen-down does on the canvas. */
@@ -44,6 +48,52 @@ sealed interface InkMode {
     data object Lasso : InkMode
     /** Tap to place a sticky note. */
     data object Sticky : InkMode
+    /** Drag out a straight line, arrow, rectangle or ellipse; saved as an ordinary pen stroke. */
+    data class Shape(val kind: ShapeKind) : InkMode
+}
+
+enum class ShapeKind(val id: String) { Line("line"), Arrow("arrow"), Rectangle("rect"), Ellipse("ellipse") }
+
+/**
+ * Outline of a shape from (x0, y0) to (x1, y1) as flat `[x, y, pressure, ...]` world points, the
+ * shared stroke format, so every client renders it with no schema change. Straight runs are
+ * resampled so pressure brushes stay even along them.
+ */
+fun shapePoints(kind: ShapeKind, x0: Float, y0: Float, x1: Float, y1: Float): DoubleArray {
+    val pts = ArrayList<Float>()
+    fun run(ax: Float, ay: Float, bx: Float, by: Float) {
+        val n = (hypot(bx - ax, by - ay) / 6f).toInt().coerceAtLeast(1)
+        for (i in (if (pts.isEmpty()) 0 else 1)..n) {
+            val t = i / n.toFloat()
+            pts += ax + (bx - ax) * t; pts += ay + (by - ay) * t
+        }
+    }
+    when (kind) {
+        ShapeKind.Line -> run(x0, y0, x1, y1)
+        ShapeKind.Arrow -> {
+            run(x0, y0, x1, y1)
+            val len = hypot(x1 - x0, y1 - y0).coerceAtLeast(1f)
+            val head = (len * 0.25f).coerceIn(8f, 28f)
+            val ux = (x1 - x0) / len; val uy = (y1 - y0) / len
+            // Two barbs at ±28° back along the shaft, drawn out and back from the tip.
+            val c = 0.883f; val sn = 0.469f
+            val ax = x1 - head * (ux * c - uy * sn); val ay = y1 - head * (uy * c + ux * sn)
+            val bx = x1 - head * (ux * c + uy * sn); val by = y1 - head * (uy * c - ux * sn)
+            run(x1, y1, ax, ay); run(ax, ay, x1, y1); run(x1, y1, bx, by)
+        }
+        ShapeKind.Rectangle -> { run(x0, y0, x1, y0); run(x1, y0, x1, y1); run(x1, y1, x0, y1); run(x0, y1, x0, y0) }
+        ShapeKind.Ellipse -> {
+            val cx = (x0 + x1) / 2; val cy = (y0 + y1) / 2; val rx = abs(x1 - x0) / 2; val ry = abs(y1 - y0) / 2
+            val n = 72
+            for (i in 0..n) {
+                val a = (i * 2 * PI / n).toFloat()
+                pts += cx + rx * cos(a); pts += cy + ry * sin(a)
+            }
+        }
+    }
+    return DoubleArray(pts.size / 2 * 3).also { out ->
+        for (i in 0 until pts.size / 2) { out[i * 3] = pts[i * 2].toDouble(); out[i * 3 + 1] = pts[i * 2 + 1].toDouble(); out[i * 3 + 2] = 0.5 }
+    }
 }
 
 /** A shared stroke plus its renderable ink twin and world bounds. */
@@ -112,7 +162,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
     private val undoStack = ArrayDeque<Edit>()
     private val redoStack = ArrayDeque<Edit>()
 
-    private enum class Action { None, Ink, Erase, Lasso, Move, Item }
+    private enum class Action { None, Ink, Erase, Lasso, Move, Item, Shape }
     private var action = Action.None
     private var penPointer = -1
     private var liveId: InProgressStrokeId? = null
@@ -235,19 +285,35 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
         invalidate()
     }
 
+    /** Screen px kept clear by floating controls (top, bottom), so fitted content isn't under them. */
+    var chromeInsets = 0f to 0f
+
     /** Animates to show the world rect [target], or the page origin at 100%. */
     fun fitTo(target: RectF?) {
         val end = Matrix()
+        val (top, bottom) = chromeInsets
         if (target == null || target.isEmpty || width == 0) {
             end.setScale(density, density)
-            end.postTranslate(24 * density, 24 * density)
+            end.postTranslate(24 * density, top + 16 * density)
         } else {
             val pad = 32 * density
-            val s = minOf((width - 2 * pad) / target.width(), (height - 2 * pad) / target.height())
+            val h = height - top - bottom
+            val s = minOf((width - 2 * pad) / target.width(), (h - 2 * pad) / target.height())
                 .coerceIn(MIN_SCALE * density, density * 2)
             end.setScale(s, s)
-            end.postTranslate((width - target.width() * s) / 2 - target.left * s, (height - target.height() * s) / 2 - target.top * s)
+            end.postTranslate((width - target.width() * s) / 2 - target.left * s, top + (h - target.height() * s) / 2 - target.top * s)
         }
+        animateTo(end)
+    }
+
+    /** Pans (keeping the zoom) so the world rect [target] sits in the middle of the free area. */
+    fun centerOn(target: RectF) {
+        val (top, bottom) = chromeInsets
+        val s = scale()
+        val end = Matrix(view)
+        val cx = (target.centerX() * s + tx())
+        val cy = (target.centerY() * s + ty())
+        end.postTranslate(width / 2f - cx, top + (height - top - bottom) / 2f - cy)
         animateTo(end)
     }
 
@@ -347,6 +413,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
             mode == InkMode.Lasso && selection.isNotEmpty() && selectionHit(last[0], last[1]) -> Action.Move
             mode == InkMode.Lasso -> Action.Lasso
             mode == InkMode.Select || mode == InkMode.Sticky -> if (itemAt(last[0], last[1]) != null) Action.Item else return false
+            mode is InkMode.Shape -> Action.Shape
             else -> Action.Ink
         }
         penPointer = id
@@ -354,7 +421,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
         downAt[0] = last[0]; downAt[1] = last[1]
         downScreen[0] = x; downScreen[1] = y
         dragged = false
-        listener?.onInking(action == Action.Ink || action == Action.Erase || action == Action.Lasso)
+        listener?.onInking(action == Action.Ink || action == Action.Erase || action == Action.Lasso || action == Action.Shape)
         when (action) {
             Action.Ink -> {
                 val tool = (mode as? InkMode.Draw)?.tool ?: PenTool.Pen
@@ -376,6 +443,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
             }
             Action.Move -> { dragDx = 0f; dragDy = 0f }
             Action.Item -> dragItem = itemAt(last[0], last[1])
+            Action.Shape -> { shapeEnd[0] = last[0]; shapeEnd[1] = last[1] }
             Action.None -> Unit
         }
         invalidate()
@@ -424,6 +492,10 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
                     dragDx = world[0] - downAt[0]; dragDy = world[1] - downAt[1]
                     invalidate()
                 }
+                Action.Shape -> {
+                    toWorld(event.getX(index), event.getY(index), shapeEnd)
+                    invalidate()
+                }
                 Action.Item -> {
                     if (!dragged && hypot(event.getX(index) - downScreen[0], event.getY(index) - downScreen[1]) > TOUCH_SLOP * density) dragged = true
                     if (dragged) {
@@ -447,6 +519,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
             }
             Action.Lasso -> finishLasso()
             Action.Move -> finishMove()
+            Action.Shape -> finishShape()
             Action.Item -> dragItem?.let { item ->
                 if (dragged) {
                     toWorld(event.getX(index), event.getY(index), world)
@@ -593,6 +666,38 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
         record(Edit(added, emptyList()))
     }
 
+    private val shapeEnd = FloatArray(2)
+    private val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
+    private val shapePath = Path()
+
+    private fun finishShape() {
+        val kind = (mode as? InkMode.Shape)?.kind ?: return
+        // A tap is not a shape.
+        if (hypot(shapeEnd[0] - downAt[0], shapeEnd[1] - downAt[1]) * scale() < TOUCH_SLOP * density) return
+        val data = Stroke(
+            points = shapePoints(kind, downAt[0], downAt[1], shapeEnd[0], shapeEnd[1]),
+            color = Brushes.hex(color), width = sizes.getValue(PenTool.Pen).toDouble(), tool = PenTool.Pen.id,
+        )
+        entries[data.id] = InkEntry(data, Brushes.build(data, dark))
+        listener?.onEdit(listOf(data), emptyList())
+        record(Edit(listOf(data), emptyList()))
+    }
+
+    /** Live outline while a shape is dragged out, in world space. */
+    private fun drawShapePreview(canvas: Canvas) {
+        if (action != Action.Shape) return
+        val kind = (mode as? InkMode.Shape)?.kind ?: return
+        val p = shapePoints(kind, downAt[0], downAt[1], shapeEnd[0], shapeEnd[1])
+        shapePath.reset()
+        for (i in 0 until p.size / 3) {
+            val x = p[i * 3].toFloat(); val y = p[i * 3 + 1].toFloat()
+            if (i == 0) shapePath.moveTo(x, y) else shapePath.lineTo(x, y)
+        }
+        shapePaint.color = Brushes.displayColor(color, dark, PenTool.Pen)
+        shapePaint.strokeWidth = sizes.getValue(PenTool.Pen)
+        canvas.drawPath(shapePath, shapePaint)
+    }
+
     private val hitRect = RectF()
 
     private fun eraseAlong(x0: Float, y0: Float, x1: Float, y1: Float) {
@@ -682,6 +787,9 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
         return hypot(scratch[Matrix.MSCALE_X], scratch[Matrix.MSKEW_Y])
     }
 
+    private fun tx(): Float { view.getValues(scratch); return scratch[Matrix.MTRANS_X] }
+    private fun ty(): Float { view.getValues(scratch); return scratch[Matrix.MTRANS_Y] }
+
     private fun toWorld(x: Float, y: Float, out: FloatArray) {
         out[0] = x; out[1] = y
         inverse.mapPoints(out)
@@ -720,6 +828,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
             selection.forEach { id -> entries[id]?.let { renderer.draw(canvas, it.ink, m) } }
             canvas.restore()
         }
+        drawShapePreview(canvas)
         canvas.restore()
         drawSelectionChrome(canvas)
         drawCursor(canvas)
@@ -753,7 +862,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
     private fun drawCursor(canvas: Canvas) {
         if (cursorX.isNaN()) return
         val radius = if (cursorErases) ERASER_RADIUS_DP * density else {
-            val tool = (mode as? InkMode.Draw)?.tool ?: return
+            val tool = (mode as? InkMode.Draw)?.tool ?: if (mode is InkMode.Shape) PenTool.Pen else return
             sizes.getValue(tool) / 2f * scale()
         }
         canvas.drawCircle(cursorX, cursorY, radius.coerceAtLeast(3 * density), ringPaint)

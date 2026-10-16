@@ -8,7 +8,16 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.ui.unit.IntOffset
+import app.vellune.ink.ShapeKind
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -134,10 +143,14 @@ fun EdgelessScreen(
                 "eraser" -> InkMode.Eraser
                 "lasso" -> InkMode.Lasso
                 "sticky" -> InkMode.Sticky
-                else -> InkMode.Draw(PenTool.entries.firstOrNull { it.id == m } ?: PenTool.Pen)
+                else -> if (m?.startsWith("shape:") == true) InkMode.Shape(ShapeKind.entries.firstOrNull { "shape:" + it.id == m } ?: ShapeKind.Rectangle)
+                else InkMode.Draw(PenTool.entries.firstOrNull { it.id == m } ?: PenTool.Pen)
             },
         )
     }
+    // The pen and shape buttons remember which member of their family was used last.
+    var lastPen by remember { mutableStateOf(PenTool.entries.firstOrNull { it.id == db.kv("last_pen") } ?: PenTool.Pen) }
+    var lastShape by remember { mutableStateOf(ShapeKind.entries.firstOrNull { it.id == db.kv("last_shape") } ?: ShapeKind.Rectangle) }
     var color by remember { mutableIntStateOf(db.kv("pen_color")?.toIntOrNull() ?: InkColors[0]) }
     var sizeTick by remember { mutableIntStateOf(0) }
     var fingerDraws by remember { mutableStateOf(db.kv("finger_draws") != "0") }
@@ -220,7 +233,10 @@ fun EdgelessScreen(
         db.setKv("pen_mode", when (val m = mode) {
             InkMode.Select -> "select"; InkMode.Eraser -> "eraser"; InkMode.Lasso -> "lasso"; InkMode.Sticky -> "sticky"
             is InkMode.Draw -> m.tool.id
+            is InkMode.Shape -> "shape:" + m.kind.id
         })
+        (mode as? InkMode.Draw)?.let { lastPen = it.tool; db.setKv("last_pen", it.tool.id) }
+        (mode as? InkMode.Shape)?.let { lastShape = it.kind; db.setKv("last_shape", it.kind.id) }
     }
     LaunchedEffect(color) { view.color = color; db.setKv("pen_color", color.toString()) }
     LaunchedEffect(fingerDraws) { view.fingerDraws = fingerDraws }
@@ -289,6 +305,27 @@ fun EdgelessScreen(
 
         AndroidView({ view }, Modifier.fillMaxSize())
 
+        BackHandler(onBack = onBack)
+
+        // Where things are: an arrow on the edge for each item (and the ink) that is off screen.
+        val markers = remember(items, page.canvas.strokes) {
+            val ink = view.inkBounds()
+            items.map { i -> Triple<String, () -> RectF?, Color>(i.id, { itemRects[i.id] }, when (i.type) {
+                "note" -> colors.primary
+                "embed" -> colors.tertiary
+                else -> (STICKY[i.color] ?: STICKY.getValue("amber")).first
+            }) } + listOfNotNull(ink?.let { r -> Triple<String, () -> RectF?, Color>("ink", { r }, colors.onSurface) })
+        }
+        markers.forEach { (key, rect, tint) ->
+            EdgeMarker(
+                rect = rect, tint = tint,
+                transform = { Triple(scale, tx, ty) },
+                insets = { view.chromeInsets },
+                onTap = { rect()?.let { view.centerOn(it) } },
+                label = if (key == "ink") "Go to drawing" else "Go to ${items.firstOrNull { it.id == key }?.type ?: "item"}",
+            )
+        }
+
         // Floating chrome: back and title on the left, zoom and page actions on the right. Fades while inking.
         val chromeAlpha by animateFloatAsState(if (inking) 0.3f else 1f, MaterialTheme.motionScheme.fastEffectsSpec(), label = "chrome")
         Row(
@@ -327,6 +364,12 @@ fun EdgelessScreen(
 
         BoxWithConstraints(Modifier.align(Alignment.BottomCenter)) {
             val compact = maxWidth < 600.dp
+            // Fitting keeps content clear of the floating pills above and the toolbar below.
+            val navBottom = WindowInsets.navigationBars.getBottom(LocalDensity.current)
+            val topInset = WindowInsets.safeDrawing.getTop(LocalDensity.current)
+            LaunchedEffect(compact, navBottom, topInset) {
+                view.chromeInsets = (topInset + 72 * density) to (navBottom + (if (compact) 148 else 88) * density)
+            }
             Column(
                 Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp, start = 12.dp, end = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -348,14 +391,22 @@ fun EdgelessScreen(
                             db.setKv("pen_size_${tool.id}", it.toString())
                         },
                         modifier = Modifier.padding(bottom = 12.dp),
+                        kinds = when (val m = mode) {
+                            is InkMode.Draw -> ({ KindRow("Pen", PenTool.entries, m.tool, ::penIcon, ::penLabel) { mode = InkMode.Draw(it) } })
+                            is InkMode.Shape -> ({ KindRow("Shape", ShapeKind.entries, m.kind, ::shapeIcon, ::shapeLabel) { mode = InkMode.Shape(it) } })
+                            else -> null
+                        },
                     )
                 }
                 PenToolbar(
                     mode = mode, color = color, inking = inking, selection = selection,
                     canUndo = canUndo, canRedo = canRedo, paletteOpen = paletteOpen, showHistory = !compact, compact = compact,
+                    lastPen = lastPen, lastShape = lastShape,
                     onMode = { m ->
-                        paletteOpen = if (m == mode && m is InkMode.Draw) !paletteOpen else false
-                        mode = m
+                        // Tapping the active pen or shape button opens its options.
+                        val family = (m is InkMode.Draw && mode is InkMode.Draw) || (m is InkMode.Shape && mode is InkMode.Shape)
+                        paletteOpen = if (family) !paletteOpen else false
+                        if (!family) mode = m
                     },
                     onPalette = { paletteOpen = !paletteOpen },
                     onUndo = { view.undo() }, onRedo = { view.redo() },
@@ -494,4 +545,55 @@ private fun EmbedPicker(pages: List<Page>, onDismiss: () -> Unit, onPick: (Page)
         confirmButton = {},
         dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
     )
+}
+
+/**
+ * A pill on the screen edge pointing at a world rect that is off screen; tap to pan there.
+ * Position and rotation are computed in layout and draw, so panning never recomposes it.
+ */
+@Composable
+private fun BoxScope.EdgeMarker(
+    rect: () -> RectF?,
+    tint: Color,
+    transform: () -> Triple<Float, Float, Float>,
+    insets: () -> Pair<Float, Float>,
+    onTap: () -> Unit,
+    label: String,
+) {
+    val sizePx = with(LocalDensity.current) { 40.dp.toPx() }
+    val margin = with(LocalDensity.current) { 12.dp.toPx() }
+    var angle by remember { mutableFloatStateOf(0f) }
+    var bounds by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    Box(Modifier.matchParentSize().onSizeChanged { bounds = it })
+    Surface(
+        onClick = onTap, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 3.dp,
+        modifier = Modifier
+            .size(40.dp)
+            .offset {
+                val r = rect() ?: return@offset IntOffset(-100_000, 0)
+                val (s, x, y) = transform()
+                val (top, bottom) = insets()
+                val w = bounds.width.toFloat(); val h = bounds.height.toFloat()
+                val l = r.left * s + x; val t = r.top * s + y; val rr = r.right * s + x; val b = r.bottom * s + y
+                // On screen (even partly): no marker.
+                if (rr > 0 && l < w && b > top && t < h - bottom) return@offset IntOffset(-100_000, 0)
+                val vx = w / 2; val vy = top + (h - top - bottom) / 2
+                val dx = (l + rr) / 2 - vx; val dy = (t + b) / 2 - vy
+                angle = Math.toDegrees(kotlin.math.atan2(dy, dx).toDouble()).toFloat()
+                val hw = w / 2 - margin - sizePx / 2; val hh = (h - top - bottom) / 2 - margin - sizePx / 2
+                val k = minOf(if (dx != 0f) hw / kotlin.math.abs(dx) else Float.MAX_VALUE, if (dy != 0f) hh / kotlin.math.abs(dy) else Float.MAX_VALUE)
+                IntOffset((vx + dx * k - sizePx / 2).toInt(), (vy + dy * k - sizePx / 2).toInt())
+            }
+            .semantics { contentDescription = label },
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            // Kind color in the middle, an arrow riding the rim toward the item.
+            Box(Modifier.size(10.dp).background(tint, CircleShape))
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowForward, null,
+                Modifier.size(40.dp).graphicsLayer { rotationZ = angle }.padding(start = 26.dp),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
 }
