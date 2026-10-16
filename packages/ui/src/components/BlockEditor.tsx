@@ -510,6 +510,26 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   };
   useEffect(() => () => sync.setCursor(page.id, null), [page.id]);
 
+  // Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and Ctrl/Cmd+Y undo and redo whole-page edits (typing, splits,
+  // merges, moves, deletes), not just the text of one textarea.
+  useEffect(() => {
+    if (readOnly) return;
+    sync.trackUndo(page.id);
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k !== 'z' && k !== 'y') return;
+      const t = e.target as HTMLElement | null;
+      // Only inside this editor or with nothing focused; other inputs keep their own undo.
+      if (t && t !== document.body && !t.closest('.editor-center')) return;
+      if (t?.closest('.prop-input, .table-block input, .comment-compose, .icon-custom')) return;
+      e.preventDefault();
+      sync.undo(page.id, k === 'y' || e.shiftKey);
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [page.id, readOnly]);
+
   // Block links (/doc/{id}#b-{block}) scroll to the block and flash it once.
   useEffect(() => {
     const id = location.hash.startsWith('#b-') ? location.hash.slice(1) : null;

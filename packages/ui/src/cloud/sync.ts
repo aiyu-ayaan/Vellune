@@ -171,6 +171,38 @@ class SyncEngine {
     pageToDoc(this.doc(page.id), page);
   }
 
+  // ---------- undo ----------
+
+  private undoers = new Map<string, Y.UndoManager>();
+
+  /** Per-page undo of this device's own document edits; a collaborator's changes are never undone. */
+  private undoer(id: string): Y.UndoManager {
+    let u = this.undoers.get(id);
+    if (!u) {
+      const d = this.doc(id);
+      // The canvas has its own undo, and comments are not document edits.
+      u = new Y.UndoManager([d.getMap('meta'), d.getArray('blocks'), d.getMap('props')], { trackedOrigins: new Set([LOCAL]), captureTimeout: 700 });
+      this.undoers.set(id, u);
+    }
+    return u;
+  }
+
+  /** Start recording undo for a page (call when its editor opens). */
+  trackUndo(id: string) {
+    this.undoer(id);
+  }
+
+  /** Undo (or redo) the last local edit to a page; false when there is nothing to do. */
+  undo(id: string, redo = false): boolean {
+    const u = this.undoer(id);
+    if (!(redo ? u.canRedo() : u.canUndo())) return false;
+    if (redo) u.redo();
+    else u.undo();
+    const page = docToPage(this.doc(id));
+    if (page) this.bridge?.applyRemote(page);
+    return true;
+  }
+
   private debounce(key: string, ms: number, fn: () => void) {
     clearTimeout(this.timers.get(key));
     this.timers.set(key, setTimeout(() => {
@@ -182,7 +214,8 @@ class SyncEngine {
   private onDocUpdate(id: string, update: Uint8Array, origin: unknown) {
     this.debounce(`persist:${id}`, PERSIST_MS, () => this.persist(id));
     const rec = this.recs.get(id);
-    if (origin !== LOCAL || !rec || rec.role === 'viewer') return;
+    // Undo/redo replays local edits, so it syncs like typing.
+    if ((origin !== LOCAL && !(origin instanceof Y.UndoManager)) || !rec || rec.role === 'viewer') return;
     if (this.online && !rec.registered && this.ws?.readyState === WebSocket.OPEN && this.bridge?.pages()[id]) {
       // A page made while online registers now; its full state becomes the first update.
       this.registerNow(id);
@@ -257,6 +290,8 @@ class SyncEngine {
   /** Forget everything synced on this device (logout). */
   reset() {
     this.stop();
+    this.undoers.forEach((u) => u.destroy());
+    this.undoers.clear();
     this.docs.forEach((d) => d.destroy());
     this.docs.clear();
     this.recs.clear();
@@ -405,6 +440,8 @@ class SyncEngine {
   }
 
   private forget(id: string) {
+    this.undoers.get(id)?.destroy();
+    this.undoers.delete(id);
     this.docs.get(id)?.destroy();
     this.docs.delete(id);
     this.recs.delete(id);
