@@ -6,7 +6,7 @@
   "author": "Aiyu Ayaan <aiyuayaan22@gmail.com>",
   "license": "MIT OR Apache-2.0",
   "scripts": {
-    "dev": "concurrently -n \"backend,sync,web\" -c \"blue,cyan,magenta\" \"pnpm dev:backend\" \"pnpm dev:sync\" \"pnpm dev:web\"",
+    "dev": "concurrently -n \"backend,web\" -c \"blue,magenta\" \"pnpm dev:backend\" \"pnpm dev:web\"",
     "dev:backend": "cargo run -p vellune-api",
     "dev:sync": "cargo run -p vellune-sync",
     "dev:workers": "cargo run -p vellune-workers",

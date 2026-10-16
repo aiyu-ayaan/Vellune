@@ -12,6 +12,7 @@
 | [`architecture.md`](architecture.md) | **Spec:** System architecture, request lifecycles, component interactions. |
 | [`document-format.md`](document-format.md) | **Spec:** Canonical document model, blocks, vector strokes, Markdown round-trip rules. |
 | [`sync-protocol.md`](sync-protocol.md) | **Spec:** WebSocket sync wire format, cursors, recovery. |
+| [`api.md`](api.md) | **Spec:** HTTP, admin, and WebSocket API contract (v1). |
 | [`security.md`](security.md) | **Spec:** Tenant isolation, RBAC, presigned uploads, data protection. |
 | [`adr/`](adr) | **Decisions:** Architecture decision records (`NNNN-short-title.md`). |
 | `notes/` | **Working notes:** Implementation designs, research, benchmarks, experiments. Create on first use. |

@@ -806,15 +806,17 @@ Build fast local editing and reliable data foundations first. Add rich workspace
 
 ## Development Commands
 
-- `pnpm dev`: Start backend API, sync gateway, and web client concurrently.
+- `pnpm dev`: Start the backend API (which also serves the WebSocket sync gateway at `/api/v1/sync`) and the web client. Vite proxies `/api` to `127.0.0.1:8080`. Run `pnpm db:up` first.
 - `pnpm dev:backend`: Run the Axum HTTP API service (`cargo run -p vellune-api`).
-- `pnpm dev:sync`: Run the WebSocket real-time sync service (`cargo run -p vellune-sync`).
+- `pnpm dev:sync`: Placeholder binary; live sync currently runs inside `vellune-api` (ADR 0002).
 - `pnpm dev:workers`: Run the background workers (`cargo run -p vellune-workers`).
 - `pnpm dev:web`: Run the web frontend dev server via Vite (`pnpm --filter @vellune/web dev`).
 - `pnpm dev:desktop`: Run the desktop client dev environment (`pnpm --filter @vellune/desktop dev`).
 - `pnpm db:up`: Start PostgreSQL 16 & Redis 7 via Docker Compose (`docker compose -f docker-compose-dev.yml up -d`).
 - `pnpm db:down`: Stop local dev database containers (`docker compose -f docker-compose-dev.yml down`).
 - `cargo check`: Verify compilation across all Rust workspace crates and services.
+- `pnpm --filter @vellune/ui test`: UI unit tests (model, Markdown, links, E2E crypto, Yjs merge).
+- Admin panel: `http://localhost:3000/admin`. The first account created on a fresh database is admin.
 
 ## Commit Guidelines
 

@@ -60,17 +60,41 @@
 ---
 
 ### Milestone 3: Real-Time Sync & Cloud Backend (MVP)
-- [ ] **Database Migrations (`migrations/`):**
-  - [ ] Write initial SQLx PostgreSQL schema for `users`, `workspaces`, `pages`, `blocks`, and `document_updates`.
-- [ ] **Backend API (`services/api`):**
-  - [ ] Implement user authentication and session management.
-  - [ ] Implement workspace CRUD with role-based access control (Owner, Editor, Viewer).
-  - [ ] Implement page/block CRUD and batch update endpoints.
-  - [ ] Implement presigned S3 attachment upload and completion routes.
-- [ ] **WebSocket Sync Gateway (`services/sync`):**
-  - [ ] Implement WebSocket connection lifecycle, authentication, and heartbeats.
-  - [ ] Implement durable sync cursor resume logic (`SyncCursor`).
-  - [ ] Implement room-based delta fan-out to active workspace peers.
+> Design: end-to-end encrypted Yjs sync, see [ADR 0002](Docs/adr/0002-e2e-encrypted-sync.md) and [`api.md`](Docs/api.md). Blocks are not server-side rows: the server stores only ciphertext.
+- [x] **Database Migrations (`migrations/0001_init.sql`):** `users` (with E2E key bundles), `sessions`, `oauth_accounts`, `oauth_providers`, `server_settings`, `pages`, `page_members`, `document_updates`, `audit_events`.
+- [x] **Backend API (`services/api`):**
+  - [x] Email/password auth with a client-derived `auth_hash` (argon2id at rest), cookie sessions, CSRF header, and login rate limits.
+  - [x] GitHub and Google OAuth (code + PKCE, browser-bound state); providers configured from the admin panel.
+  - [x] Per-page RBAC (Owner, Editor, Viewer), sharing by email with per-member wrapped keys, and public read-only links.
+  - [x] Page registry (create, list, delete); content flows through sync.
+  - [ ] Presigned S3 attachment upload and completion routes.
+  - [ ] Workspace-level membership and teamspaces (pages are shared individually today).
+- [x] **WebSocket Sync Gateway (in `vellune-api`, `/api/v1/sync`):**
+  - [x] Connection lifecycle, cookie auth, Origin check, heartbeats, idle timeout, rate limit, kick on revoke/disable.
+  - [x] Durable cursor resume (`seq`) and idempotent pushes (`op_id`); acks only after commit.
+  - [x] Per-page room fan-out and presence.
+- [x] **Clients (`packages/ui/src/cloud`):** WebCrypto E2E, Yjs page model, IndexedDB-persisted docs and pending queue, reconnect with jittered backoff, live presence avatars, sync status.
+- [x] **Login / unlock / passphrase screens**, Notion-style **Share** popover, **admin panel** (`/admin`: overview, users, OAuth, settings, audit log).
+- [x] Tests: crypto and Yjs merge unit tests (`cloud.test.ts`); a manual end-to-end protocol run and a headless-Chrome UI run (two users, share, live edits) passed on 2026-10-16.
+
+**Known limitations (follow-ups):**
+- [ ] Automated API integration tests in CI (needs a Postgres service); the end-to-end runs above were manual.
+- [ ] Update-log compaction via client-pushed encrypted snapshots.
+- [ ] Page-key rotation on member removal.
+- [ ] Account recovery key / passphrase change (re-wrap the private key).
+- [ ] Public-key verification UX beyond the fingerprint shown when sharing.
+- [ ] Multi-instance fan-out (Redis pub/sub) and distributed rate limits.
+- [ ] Desktop (Tauri) sync transport (token-based; the webview origin cannot use the session cookie).
+- [ ] Encrypt OAuth client secrets at rest.
+- [ ] Edgeless canvas is not read-only for viewers yet; the server rejects their pushes, but their local view can diverge.
+- [ ] Newly shared pages appear for the recipient after the next page-list refresh (reconnect or reload), not instantly.
+
+---
+
+### Milestone 3c: Notion look & feel
+- [x] Notion palette, typography, and spacing in light and dark mode, plus a Light / Dark / System toggle (`theme.ts`).
+- [x] Notion block colors (9 text and 9 background colors) via the block handle menu, with "Turn into" and Delete.
+- [x] Subtle motion (popover pop-in, hover, checkbox) that respects `prefers-reduced-motion`.
 
 ---
 
@@ -137,7 +161,7 @@ Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). It
 - [ ] **Edgeless tools:** frames, presentation mode, mind maps, connectors with routing, shapes, text, pen/highlighter, sticky notes, grouping, alignment, layers.
 - [ ] **Outline panel** and table-of-contents navigation.
 - [ ] **Version history:** browse and restore past snapshots per doc.
-- [ ] **Sharing:** public read-only links, invite members, per-doc permissions.
+- [x] **Sharing:** public read-only links, invite members, per-doc permissions (E2E encrypted).
 - [ ] **Comments:** inline and block comment threads with resolve.
 - [ ] **Import:** Markdown folders, Notion export, HTML, AFFiNE snapshot (where licensing and formats allow).
 - [ ] **Export:** Markdown, HTML, PDF, PNG (edgeless), workspace snapshot.
