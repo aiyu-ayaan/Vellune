@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { BlockEditor } from './components/BlockEditor';
@@ -7,6 +7,7 @@ import { BrainGraph } from './components/BrainGraph';
 import { DatabaseView } from './components/DatabaseView';
 import { RightSidebar } from './components/RightSidebar';
 import { CommandPalette } from './components/CommandPalette';
+import { ShortcutHelp } from './components/ShortcutHelp';
 import { store, useStore } from './store';
 import { LoginScreen, KeyScreen } from './components/AuthScreen';
 import { PublicPage } from './components/PublicPage';
@@ -60,6 +61,8 @@ const Workspace: React.FC = () => {
   const { pages, activeId, view, loaded, databaseTag } = useStore((s) => s);
   const [showInspector, setShowInspector] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const closeShortcuts = useCallback(() => setShowShortcuts(false), []);
   const narrow = () => typeof matchMedia === 'function' && matchMedia('(max-width: 900px)').matches;
   // Docked sidebar remembers its state; on narrow screens it is a drawer that starts closed.
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -162,6 +165,10 @@ const Workspace: React.FC = () => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setShowCommandPalette((open) => !open);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
         e.preventDefault();
@@ -290,7 +297,9 @@ const Workspace: React.FC = () => {
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
+        onShortcuts={() => setShowShortcuts(true)}
       />
+      {showShortcuts && <ShortcutHelp onClose={closeShortcuts} />}
     </div>
   );
 };

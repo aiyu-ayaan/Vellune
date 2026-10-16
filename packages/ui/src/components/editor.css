@@ -362,3 +362,18 @@
 .public-table { border-collapse: collapse; margin: 8px 0; }
 .public-table th, .public-table td { border: 1px solid var(--border-color); padding: 6px 10px; text-align: left; }
 .public-table th { background: var(--bg-secondary); }
+
+/* ---------- keyboard shortcuts ---------- */
+.shortcut-help { width: min(760px, calc(100vw - 32px)); max-height: 80vh; overflow-y: auto; padding: 8px 20px 20px; }
+.shortcut-head { display: flex; align-items: center; justify-content: space-between; }
+.shortcut-head h2 { font-size: 18px; margin: 10px 0; }
+.shortcut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px 28px; }
+.shortcut-grid h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 12px 0 6px; }
+.shortcut-grid dl { margin: 0; }
+.shortcut-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 14px; border-bottom: 1px solid var(--border-color); }
+.shortcut-row dt { color: var(--text-secondary, var(--text-primary)); }
+.shortcut-row dd { margin: 0; white-space: nowrap; }
+.shortcut-row kbd {
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 0 6px; border-radius: 4px;
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+}

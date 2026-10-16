@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { searchPages } from '../search';
 import { isTemplate, pageFromTemplate } from '../templates';
-import { Archive, LayoutTemplate, BookOpen, Calendar, Compass, Database, FilePlus, Layout, Search } from 'lucide-react';
+import { Archive, Keyboard, LayoutTemplate, BookOpen, Calendar, Compass, Database, FilePlus, Layout, Search } from 'lucide-react';
 import { download, exportWorkspace } from '../vault';
 import { store, useStore } from '../store';
 import { PageIcon } from './PageIcon';
 
-export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
+export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void; onShortcuts?: () => void }> = ({
   isOpen,
   onClose,
+  onShortcuts,
 }) => {
   const { pages, activeId } = useStore((s) => s);
   const [query, setQuery] = useState('');
@@ -34,6 +35,15 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       run: () => {
         store.openToday();
         onClose();
+      },
+    },
+    {
+      id: 'shortcuts',
+      title: 'Keyboard shortcuts',
+      icon: <Keyboard size={16} />,
+      run: () => {
+        onClose();
+        onShortcuts?.();
       },
     },
     {
