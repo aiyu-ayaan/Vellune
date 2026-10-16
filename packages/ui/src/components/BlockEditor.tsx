@@ -25,12 +25,14 @@ import {
   List,
   ListChecks,
   ListOrdered,
+  ImageIcon,
   Minus,
   Plus,
   Quote,
   Trash2,
   Type,
 } from 'lucide-react';
+import { imageToDataUrl, isImage } from '../image';
 import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock, todayKey } from '../model';
 import { store, useStore } from '../store';
 import { buildIndex } from '../links';
@@ -415,6 +417,8 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   const blockRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const pendingFocus = useRef<{ id: string; caret?: number } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const pickTarget = useRef<string | null>(null);
 
   const index = useMemo(() => buildIndex(Object.values(pages)), [pages]);
   const rawCursors = useSync((s) => s.cursors[page.id]);
@@ -480,6 +484,23 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       return [...bs.slice(0, i + 1), ...nb, ...bs.slice(i + 1)];
     });
 
+  /** Insert images after `anchorId` (default: end of page); an empty paragraph there is replaced. */
+  const addImages = async (files: File[], anchorId?: string) => {
+    if (readOnly) return;
+    const imgs = files.filter(isImage);
+    const urls = await Promise.all(imgs.map(imageToDataUrl));
+    const blocks = urls.flatMap((src, i) => (src ? [newBlock('image', imgs[i].name.replace(/\.[^.]+$/, ''), { src })] : []));
+    if (urls.some((u) => !u)) window.alert('Some images were skipped: over 1.5 MB after compression.');
+    if (!blocks.length) return;
+    update((bs) => {
+      const at = anchorId ? bs.findIndex((b) => b.id === anchorId) : bs.length - 1;
+      const anchor = bs[at];
+      const replace = anchor?.kind === 'paragraph' && anchor.text === '';
+      const out = [...bs.slice(0, replace ? at : at + 1), ...blocks, ...bs.slice(at + 1)];
+      return out[out.length - 1].kind === 'image' ? [...out, newBlock()] : out;
+    });
+  };
+
   // ---------- suggestions ----------
 
   const replaceRange = (block: Block, start: number, end: number, insert: string, reopen?: TriggerKind) => {
@@ -516,6 +537,19 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       { id: 'quote', label: 'Quote', hint: '>', group: B, icon: Quote, keywords: 'blockquote citation', run: turn('quote') },
       { id: 'callout', label: 'Callout', hint: '!>', group: B, icon: Lightbulb, keywords: 'note info tip warning highlight', run: turn('callout') },
       { id: 'code', label: 'Code block', hint: '```', group: B, icon: Code2, keywords: 'code snippet pre', run: turn('code') },
+      {
+        id: 'image',
+        label: 'Image',
+        hint: 'Upload or paste',
+        group: B,
+        icon: ImageIcon,
+        keywords: 'image picture photo upload img',
+        run: (block, ctx) => {
+          patchBlock(block.id, (b) => ({ ...b, text: ctx.text }));
+          pickTarget.current = block.id;
+          fileInput.current?.click();
+        },
+      },
       {
         id: 'divider',
         label: 'Divider',
@@ -701,7 +735,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   };
 
   const neighbor = (i: number, dir: -1 | 1) => {
-    for (let j = i + dir; j >= 0 && j < page.blocks.length; j += dir) if (page.blocks[j].kind !== 'divider') return page.blocks[j];
+    for (let j = i + dir; j >= 0 && j < page.blocks.length; j += dir) if (page.blocks[j].kind !== 'divider' && page.blocks[j].kind !== 'image') return page.blocks[j];
     return undefined;
   };
 
@@ -795,7 +829,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       const prev = page.blocks[i - 1];
       if (!prev) return;
       e.preventDefault();
-      if (prev.kind === 'divider') {
+      if (prev.kind === 'divider' || prev.kind === 'image') {
         update((bs) => bs.filter((b) => b.id !== prev.id));
         pendingFocus.current = { id: block.id, caret: 0 };
         return;
@@ -840,6 +874,12 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   };
 
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>, block: Block) => {
+    const pasted = [...e.clipboardData.files].filter(isImage);
+    if (pasted.length) {
+      e.preventDefault();
+      void addImages(pasted, block.id);
+      return;
+    }
     const text = e.clipboardData.getData('text/plain');
     if (block.kind === 'code' || !text.includes('\n')) return;
     const parsed = markdownToPage(text, 'paste').blocks;
@@ -1141,7 +1181,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
               if (e.key === 'Enter' || (e.key === 'ArrowDown' && e.currentTarget.selectionStart === page.title.length)) {
                 e.preventDefault();
                 const first = page.blocks[0];
-                if (first && first.kind !== 'divider') focusBlock(first.id, 0);
+                if (first && first.kind !== 'divider' && first.kind !== 'image') focusBlock(first.id, 0);
                 else {
                   const b = newBlock();
                   update((bs) => [b, ...bs]);
@@ -1222,7 +1262,27 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
             )}
           </section>
 
-          <div className="blocks-container" onDragEnd={() => setDrag(null)}>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              void addImages([...(e.target.files ?? [])], pickTarget.current ?? undefined);
+              e.target.value = '';
+            }}
+          />
+          <div
+            className="blocks-container"
+            onDragEnd={() => setDrag(null)}
+            onDragOver={(e) => e.dataTransfer.types.includes('Files') && e.preventDefault()}
+            onDrop={(e) => {
+              if (!e.dataTransfer.files.length) return;
+              e.preventDefault();
+              void addImages([...e.dataTransfer.files]);
+            }}
+          >
             {page.blocks.map((block, i) => {
               num = block.kind === 'numbered' ? num + 1 : 0;
               const isDrop = drag && drag.over === block.id && drag.id !== block.id;
@@ -1244,7 +1304,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       ...(readOnly
                         ? []
                         : ([
-                            { label: 'Edit', icon: Type, onSelect: () => focusBlock(block.id), disabled: block.kind === 'divider' },
+                            { label: 'Edit', icon: Type, onSelect: () => focusBlock(block.id), disabled: block.kind === 'divider' || block.kind === 'image' },
                             {
                               label: 'Insert block below',
                               icon: CornerDownLeft,
@@ -1277,6 +1337,12 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                     if (drag.over !== block.id || drag.after !== after) setDrag({ ...drag, over: block.id, after });
                   }}
                   onDrop={(e) => {
+                    if (!drag && e.dataTransfer.files.length) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void addImages([...e.dataTransfer.files], block.id);
+                      return;
+                    }
                     e.preventDefault();
                     if (drag?.over) moveBlock(drag.id, drag.over, !!drag.after);
                     setDrag(null);
@@ -1365,7 +1431,9 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                         </button>
                       </div>
                     )}
-                    {block.kind === 'divider' ? (
+                    {block.kind === 'image' ? (
+                      block.src && <img className="block-image" src={block.src} alt={block.text} draggable={false} />
+                    ) : block.kind === 'divider' ? (
                       <hr className="block-divider" />
                     ) : (
                       <div className="block-line">

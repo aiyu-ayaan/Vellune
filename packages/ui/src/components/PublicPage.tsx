@@ -65,6 +65,8 @@ export const ReadOnlyBlocks: React.FC<{
                   return <aside key={b.id} className={`${cls} public-callout`}>{t}</aside>;
                 case 'code':
                   return <pre key={b.id} className={`public-code${mark}`}><code dangerouslySetInnerHTML={{ __html: highlightCode(b.text, b.language) }} /></pre>;
+                case 'image':
+                  return b.src ? <img key={b.id} src={b.src} alt={b.text} className={`public-image${mark}`} /> : null;
                 case 'divider':
                   return <hr key={b.id} className={mark.trim() || undefined} />;
                 default:

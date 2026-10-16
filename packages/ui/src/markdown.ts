@@ -98,6 +98,8 @@ function renderBlock(b: Block): string {
         .join('\n');
     case 'divider':
       return '---';
+    case 'image':
+      return `![${b.text.replace(/[\[\]\n]/g, ' ')}](${b.src ?? ''})`;
     case 'code': {
       const longest = Math.max(0, ...b.text.split('\n').map((l) => /^\s*(`*)/.exec(l)![1].length));
       const fence = '`'.repeat(Math.max(2, longest) + 1);
@@ -118,7 +120,7 @@ export function pageToMarkdown(page: Page): string {
   }
   if (page.extraFrontmatter) yaml += page.extraFrontmatter.endsWith('\n') ? page.extraFrontmatter : `${page.extraFrontmatter}\n`;
 
-  const parts = page.blocks.filter((b) => b.kind === 'code' || b.kind === 'divider' || b.text !== '').map(renderBlock);
+  const parts = page.blocks.filter((b) => b.kind === 'code' || b.kind === 'divider' || (b.kind === 'image' && b.src) || b.text !== '').map(renderBlock);
   const { items, strokes } = page.canvas;
   if (items.length || strokes.length) {
     // "-->" only appears inside JSON strings, where \u003e is an equivalent escape.
@@ -214,6 +216,12 @@ function parseBlocks(body: string): { blocks: Block[]; canvas?: Page['canvas'] }
         code.push(lines[i]);
       }
       blocks.push(newBlock('code', code.join('\n'), lang ? { language: lang } : {}));
+      continue;
+    }
+    const img = /^!\[([^\]]*)\]\((\S+)\)$/.exec(t);
+    if (img) {
+      flush();
+      blocks.push(newBlock('image', img[1], { src: img[2] }));
       continue;
     }
     if (t.startsWith(CANVAS_PREFIX) && t.endsWith(COMMENT_SUFFIX)) {

@@ -131,3 +131,12 @@ describe('markdown numbered lists and callouts', () => {
     expect(markdownToPage(md, 'x').blocks.map((b) => [b.kind, b.text])).toEqual(page.blocks.map((b) => [b.kind, b.text]));
   });
 });
+
+describe('markdown images', () => {
+  it('round-trips an image block', () => {
+    const p = newPage('img');
+    p.blocks = [newBlock('image', 'cat', { src: 'data:image/webp;base64,AAAA' })];
+    const back = markdownToPage(pageToMarkdown(p), 'img');
+    expect(back.blocks[0]).toMatchObject({ kind: 'image', text: 'cat', src: 'data:image/webp;base64,AAAA' });
+  });
+});

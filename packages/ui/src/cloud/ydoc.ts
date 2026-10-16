@@ -9,7 +9,7 @@ export const LOCAL = Symbol('local');
 
 // `favorite` is deliberately absent: favorites are per person, not part of the shared page.
 const META_KEYS = ['title', 'tags', 'aliases', 'journal', 'extraFrontmatter', 'createdAt', 'updatedAt', 'deletedAt', 'parentId', 'folder', 'order'] as const;
-const BLOCK_KEYS = ['kind', 'level', 'checked', 'language', 'color'] as const;
+const BLOCK_KEYS = ['kind', 'level', 'checked', 'language', 'color', 'src'] as const;
 
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
 
