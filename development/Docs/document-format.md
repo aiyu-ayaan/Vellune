@@ -73,6 +73,8 @@ The web/desktop client (`packages/ui/src/model.ts`) currently implements these `
 | `code` | fenced block with optional language |
 | `divider` | `---` |
 
+Pages also carry tree metadata, synced in the page's Yjs `meta` map: `parentId` (containing folder or parent doc; unknown parent = root), `folder` (a sidebar folder: no content, excluded from links, graph, search, and databases), and `order` (manual sibling order). `favorite` stays per-device and `seeded` (untouched starter page) is never synced.
+
 Block text holds inline Markdown (`**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `[label](https://…)`, `[[wikilinks]]`, `#tags`), stored verbatim and rendered by `packages/ui/src/inline.ts`.
 
 ---

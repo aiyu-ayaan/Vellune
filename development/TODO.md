@@ -91,6 +91,13 @@
 
 ---
 
+### Milestone 3b: Self-Hosted Deploy Package
+- [x] **Single image + Compose:** `deploy/Dockerfile`, `deploy/docker-compose.yml`, `deploy/.env.example`, optional Caddy; guide in [`self-hosting.md`](Docs/self-hosting.md). Verified: SPA fallback, `/api`, WebSocket hello on one origin.
+- [ ] Commit `Cargo.lock` (currently gitignored) so image builds are reproducible.
+- [ ] Publish a pre-built multi-arch image (GHCR) from CI.
+- [ ] Deploy-time docs for backup/restore drills and a `pg_dump` cron example.
+- [ ] Optional: read `DATABASE_URL`/secrets from `*_FILE` (Docker secrets).
+
 ### Milestone 3c: Notion look & feel
 - [x] Notion palette, typography, and spacing in light and dark mode, plus a Light / Dark / System toggle (`theme.ts`).
 - [x] Notion block colors (9 text and 9 background colors) via the block handle menu, with "Turn into" and Delete.
@@ -103,7 +110,15 @@
 - [x] `[[` page suggestions with "Create page", `#` tag suggestions with "Create tag".
 - [x] Numbered list and callout blocks (Markdown round-trip), Enter splits / Backspace merges, Ctrl/Cmd+B/I/E and Ctrl/Cmd+Shift+S formatting, Markdown paste becomes blocks, drag-to-reorder plus Move up/down and Duplicate.
 - [x] Collapsible page Info (tags, journal date, created, updated, backlinks, words) and a heading outline rail.
-- [ ] Sidebar collapse button, page icons, nested pages/folders ("Organize"), inline formatting toolbar on selection, `@` mentions, images/attachments.
+- [x] Code blocks: language picker with search, syntax highlighting (highlight.js, light/dark), copy button; spacing between quote/callout/code.
+- [x] Live collaborator cursors and selections with names (E2E-encrypted awareness, Yjs relative positions); caret kept in place during remote edits.
+- [x] Version history (Google Docs style): sessions or every edit, change highlights, restore as a new version (ADR 0003).
+- [x] Organize tree: folders, nested docs, drag and drop, keyboard tree navigation, Move to…, rename, duplicate.
+- [x] Custom right-click menus (sidebar rows, blocks); native menu only in text fields.
+- [x] URLs per page: `/doc/{uuid}`, `/doc/{uuid}/edgeless`, `/graph`, `/databases?tag=`, `/trash`, block links `#b-{id}`; Back/Forward work.
+- [x] Fixed: second device duplicated starter pages; quick reload could revert the last edit (page cache vs Yjs race).
+- [ ] Sidebar collapse button, page icons, inline formatting toolbar on selection, `@` mentions, images/attachments.
+- [ ] Share a folder with its subtree; history snapshots before log compaction.
 
 ---
 
