@@ -327,7 +327,8 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item(key = "title") {
-                Column(Modifier.widthIn(max = 760.dp).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 24.dp)) {
+                Column(Modifier.widthIn(max = 760.dp).fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 16.dp)) {
+                    PageIconHeader(page.icon) { icon -> ws.updatePage(page.id) { it.copy(icon = icon) } }
                     var title by remember(page.id) { mutableStateOf(TextFieldValue(page.title, TextRange(page.title.length))) }
                     if (title.text != page.title && !title.text.contains('\n')) LaunchedEffect(page.title) { title = title.copy(text = page.title) }
                     BasicTextField(

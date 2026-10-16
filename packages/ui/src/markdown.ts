@@ -112,6 +112,7 @@ function renderBlock(b: Block): string {
 
 export function pageToMarkdown(page: Page): string {
   let yaml = `title: ${yamlScalar(page.title)}\n`;
+  if (page.icon) yaml += `icon: ${yamlScalar(page.icon)}\n`;
   for (const [key, items] of [
     ['tags', page.tags],
     ['aliases', page.aliases],
@@ -134,6 +135,7 @@ export function pageToMarkdown(page: Page): string {
 
 interface ParsedFrontmatter {
   title?: string;
+  icon?: string;
   tags: string[];
   aliases: string[];
   extra: string;
@@ -173,8 +175,8 @@ function parseFrontmatter(yaml: string): ParsedFrontmatter {
     const key = m[1].trim();
     const value = m[2].trim();
     const norm = key === 'tag' ? 'tags' : key === 'alias' ? 'aliases' : key;
-    if (norm === 'title') {
-      fm.title = unquote(value);
+    if (norm === 'title' || norm === 'icon') {
+      fm[norm] = unquote(value) || undefined;
       skipping = true;
     } else if (norm === 'tags' || norm === 'aliases') {
       skipping = true;
@@ -276,6 +278,7 @@ export function markdownToPage(markdown: string, fallbackTitle: string): Page {
   }
   const { blocks, canvas } = parseBlocks(body);
   return newPage(fm.title || fallbackTitle, {
+    icon: fm.icon,
     blocks: blocks.length ? blocks : [newBlock()],
     tags: fm.tags,
     aliases: fm.aliases,

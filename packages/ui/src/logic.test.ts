@@ -140,3 +140,27 @@ describe('markdown images', () => {
     expect(back.blocks[0]).toMatchObject({ kind: 'image', text: 'cat', src: 'data:image/webp;base64,AAAA' });
   });
 });
+
+describe('page icons', () => {
+  it('keeps the first emoji whole and ignores the rest', async () => {
+    const { firstGlyph } = await import('./components/PageIcon');
+    expect(firstGlyph('👩‍💻 dev notes')).toBe('👩‍💻');
+    expect(firstGlyph('🇮🇳')).toBe('🇮🇳');
+    expect(firstGlyph('👍🏽!')).toBe('👍🏽');
+    expect(firstGlyph('Ab')).toBe('A');
+    expect(firstGlyph('')).toBeUndefined();
+  });
+
+  it('round-trips through Markdown frontmatter and Yjs', async () => {
+    const { pageToMarkdown, markdownToPage } = await import('./markdown');
+    const Y = await import('yjs');
+    const { pageToDoc, docToPage } = await import('./cloud/ydoc');
+    const page = { ...newPage('Trip'), icon: '✈️' };
+    expect(markdownToPage(pageToMarkdown(page), 'x').icon).toBe('✈️');
+    const doc = new Y.Doc();
+    pageToDoc(doc, page);
+    expect(docToPage(doc)?.icon).toBe('✈️');
+    pageToDoc(doc, { ...page, icon: undefined });
+    expect(docToPage(doc)?.icon).toBeUndefined();
+  });
+});

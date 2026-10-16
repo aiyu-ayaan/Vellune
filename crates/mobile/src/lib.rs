@@ -20,8 +20,8 @@ mod jni_api;
 
 // `favorite` is deliberately absent: favorites are per person, not part of the shared page.
 // `mode` ("edgeless") remembers which face a page opens on.
-const META_KEYS: [&str; 12] = [
-    "title", "tags", "aliases", "journal", "extraFrontmatter", "createdAt", "updatedAt", "deletedAt", "parentId", "folder", "order", "mode",
+const META_KEYS: [&str; 13] = [
+    "title", "icon", "tags", "aliases", "journal", "extraFrontmatter", "createdAt", "updatedAt", "deletedAt", "parentId", "folder", "order", "mode",
 ];
 const BLOCK_KEYS: [&str; 6] = ["kind", "level", "checked", "language", "color", "src"];
 
@@ -323,7 +323,7 @@ mod tests {
     use serde_json::json;
 
     fn page(blocks: Value) -> Value {
-        json!({ "id": "p1", "title": "Hello", "tags": ["a"], "aliases": [], "favorite": true,
+        json!({ "id": "p1", "title": "Hello", "icon": "✈️", "tags": ["a"], "aliases": [], "favorite": true,
                 "createdAt": 1712345678901i64, "updatedAt": 1712345678901i64, "blocks": blocks,
                 "canvas": { "items": [{ "id": "n", "type": "note", "x": 0, "y": 0, "w": 640, "h": 400 }],
                             "strokes": [{ "id": "s", "points": [1, 2, 0.5], "color": "#000", "width": 2 }] } })
@@ -336,6 +336,7 @@ mod tests {
         assert!(!apply_page(&doc, &p).is_empty());
         let back = doc_to_page(&doc).unwrap();
         assert_eq!(back["title"], "Hello");
+        assert_eq!(back["icon"], "✈️");
         assert_eq!(back["createdAt"], json!(1712345678901i64));
         assert_eq!(back["blocks"][0]["text"], "Title 😀");
         assert_eq!(back["blocks"][0]["level"], json!(1));

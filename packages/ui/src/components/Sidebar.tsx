@@ -33,6 +33,7 @@ import { store, useStore } from '../store';
 import { getTheme, setTheme, Theme } from '../theme';
 import { useSession } from '../cloud/session';
 import { Account } from './Account';
+import { PageIcon } from './PageIcon';
 import { Avatar } from './ShareMenu';
 
 const THEME_ICON = { light: Sun, dark: Moon, system: Monitor } as const;
@@ -449,7 +450,7 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
               >
                 <ChevronRight size={12} className={isOpen ? 'caret open' : 'caret'} aria-hidden="true" />
               </span>
-              <Icon size={16} aria-hidden="true" className="tree-icon" />
+              {p.icon ? <PageIcon page={p} className="tree-icon" /> : <Icon size={16} aria-hidden="true" className="tree-icon" />}
               {renaming === p.id ? (
                 <RenameInput initial={p.title} onDone={(v) => commitRename(p, v)} />
               ) : (
@@ -539,7 +540,7 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }
       className={`page-list-item ${docActive(p.id) ? 'active' : ''}`}
       onClick={() => store.open(p.id)}
     >
-      <FileText size={16} aria-hidden="true" />
+      <PageIcon page={p} />
       <span className="page-title-text">{p.title || 'Untitled'}</span>
     </button>
   );

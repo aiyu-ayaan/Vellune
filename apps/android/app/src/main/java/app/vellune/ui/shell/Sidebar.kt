@@ -120,6 +120,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.vellune.core.Connection
 import app.vellune.core.Page
 import app.vellune.core.SessionState
@@ -510,7 +511,8 @@ private fun TreeRow(
                     tint = colors.onSurfaceVariant,
                 )
             }
-            Icon(
+            if (p.icon != null && !p.isFolder) Text(p.icon, fontSize = 16.sp, modifier = Modifier.size(18.dp))
+            else Icon(
                 when {
                     p.isFolder && open -> Icons.Outlined.FolderOpen
                     p.isFolder -> Icons.Outlined.Folder

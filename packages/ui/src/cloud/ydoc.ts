@@ -8,7 +8,7 @@ import { Block, CanvasItem, Page, Stroke } from '../model';
 export const LOCAL = Symbol('local');
 
 // `favorite` is deliberately absent: favorites are per person, not part of the shared page.
-const META_KEYS = ['title', 'tags', 'aliases', 'journal', 'extraFrontmatter', 'createdAt', 'updatedAt', 'deletedAt', 'parentId', 'folder', 'order'] as const;
+const META_KEYS = ['title', 'icon', 'tags', 'aliases', 'journal', 'extraFrontmatter', 'createdAt', 'updatedAt', 'deletedAt', 'parentId', 'folder', 'order'] as const;
 const BLOCK_KEYS = ['kind', 'level', 'checked', 'language', 'color', 'src'] as const;
 
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
@@ -100,6 +100,7 @@ export function docToPage(doc: Y.Doc): Page | null {
   return {
     id,
     title: m.title ?? '',
+    icon: m.icon,
     blocks,
     tags: m.tags ?? [],
     aliases: m.aliases ?? [],

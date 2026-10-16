@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -29,12 +29,14 @@ import {
   Minus,
   Plus,
   Quote,
+  Smile,
   Trash2,
   Type,
 } from 'lucide-react';
 import { INLINE_MAX, isImage, prepareImage, readDataUrl } from '../image';
 import { uploadBlob } from '../cloud/blobs';
 import { BlobImage } from './BlobImage';
+import { IconPicker } from './PageIcon';
 import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock, todayKey } from '../model';
 import { store, useStore } from '../store';
 import { buildIndex } from '../links';
@@ -414,6 +416,8 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     }
   });
   const [copied, setCopied] = useState<string | null>(null);
+  const [iconOpen, setIconOpen] = useState(false);
+  const closeIcon = useCallback(() => setIconOpen(false), []);
   const [drag, setDrag] = useState<{ id: string; over?: string; after?: boolean } | null>(null);
   const handleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const blockRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
@@ -1192,6 +1196,22 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         {readOnly && <div className="read-only-badge">View only — the owner shared this page with you as a viewer</div>}
         {/* A disabled fieldset makes every control read-only for viewers in one place. */}
         <fieldset className="editor-fieldset" disabled={readOnly}>
+          <div className={`doc-icon-row${page.icon ? ' has-icon' : ''}`}>
+            {page.icon ? (
+              <button type="button" className="doc-icon" aria-label="Change page icon" title="Change icon" onClick={() => setIconOpen((o) => !o)}>
+                {page.icon}
+              </button>
+            ) : (
+              !readOnly && (
+                <button type="button" className="doc-add-icon" onClick={() => setIconOpen((o) => !o)}>
+                  <Smile size={16} aria-hidden="true" /> Add icon
+                </button>
+              )
+            )}
+            {iconOpen && !readOnly && (
+              <IconPicker current={page.icon} onPick={(icon) => store.updatePage(page.id, (p) => ({ ...p, icon }))} onClose={closeIcon} />
+            )}
+          </div>
           <textarea
             ref={titleRef}
             className="doc-title-input"

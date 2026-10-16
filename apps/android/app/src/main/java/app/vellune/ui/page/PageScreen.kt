@@ -113,7 +113,7 @@ fun PageScreen(app: Vellune, nav: AppState, page: Page, index: LinkIndex, sync: 
             topBar = {
                 VTopBar(
                     icon = if (page.journal != null) Icons.Outlined.CalendarToday else Icons.Outlined.Description,
-                    title = page.displayTitle,
+                    title = listOfNotNull(page.icon, page.displayTitle).joinToString(" "),
                     subtitle = parent?.displayTitle ?: "Doc",
                     onMenu = onMenu,
                     actions = {

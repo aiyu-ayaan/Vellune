@@ -268,3 +268,36 @@
 .block-row.flash .block-content { animation: block-flash 1.6s ease-out; }
 @keyframes block-flash { 0%, 40% { background: var(--accent-light); } 100% { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .block-row.flash .block-content { animation: none; background: var(--accent-light); } }
+
+/* ---------- page icon ---------- */
+.doc-icon-row { position: relative; display: flex; align-items: flex-end; min-height: 30px; margin-bottom: 4px; }
+.doc-icon-row.has-icon { min-height: 84px; }
+.doc-icon {
+  font-size: 64px; line-height: 1; padding: 6px; margin-left: -6px; border: 0; background: transparent;
+  border-radius: var(--radius-lg); cursor: pointer;
+}
+.doc-add-icon {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; margin-left: -8px; border: 0; border-radius: 4px;
+  background: transparent; color: var(--text-muted); font-size: 14px; cursor: pointer; opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+.editor-center:hover .doc-add-icon, .doc-add-icon:focus-visible { opacity: 1; }
+@media (hover: none) { .doc-add-icon { opacity: 1; } }
+@media (hover: hover) and (pointer: fine) {
+  .doc-icon:hover, .doc-add-icon:hover { background: var(--bg-hover); }
+}
+.doc-icon-row .icon-picker { top: 100%; left: 0; width: 336px; max-height: 420px; }
+.icon-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
+.icon-cell {
+  aspect-ratio: 1; font-size: 20px; line-height: 1; border: 0; border-radius: 4px; background: transparent; cursor: pointer; padding: 0;
+}
+.icon-cell.active { background: var(--accent-light); }
+@media (hover: hover) and (pointer: fine) { .icon-cell:hover { background: var(--bg-hover); } }
+.icon-custom { display: flex; gap: 6px; padding: 2px 2px 4px; }
+.icon-custom input {
+  flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px;
+  background: var(--bg-secondary); color: var(--text-primary); font: inherit; font-size: 14px;
+}
+.icon-custom .menu-item { width: auto; }
+.page-emoji { display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; }
+.topbar-emoji { margin-right: 6px; }

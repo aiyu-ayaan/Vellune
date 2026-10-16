@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpen, Calendar, Compass, Database, FilePlus, Layout, Search } from 'lucide-react';
 import { store, useStore } from '../store';
+import { PageIcon } from './PageIcon';
 
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -125,7 +126,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
                 onClose();
               }}
             >
-              <BookOpen size={16} />
+              <PageIcon page={p} fallback={BookOpen} />
               <span>{p.title || 'Untitled'}</span>
               {p.tags.length > 0 && (
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>

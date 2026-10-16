@@ -57,6 +57,8 @@ data class Canvas(val items: List<CanvasItem> = emptyList(), val strokes: List<S
 data class Page(
     val id: String = newId(),
     val title: String = "",
+    /** Emoji shown before the title; shared with the web. */
+    val icon: String? = null,
     val blocks: List<Block> = listOf(Block()),
     val tags: List<String> = emptyList(),
     val aliases: List<String> = emptyList(),
@@ -151,6 +153,7 @@ fun pageFromJson(o: JSONObject, favorite: Boolean = false): Page {
     return Page(
         id = o.getString("id"),
         title = o.optStr("title").orEmpty(),
+        icon = o.optStr("icon"),
         blocks = if (blocks == null) emptyList() else List(blocks.length()) { blockFromJson(blocks.getJSONObject(it)) },
         tags = o.optJSONArray("tags").strings(),
         aliases = o.optJSONArray("aliases").strings(),
@@ -174,6 +177,7 @@ fun pageFromJson(o: JSONObject, favorite: Boolean = false): Page {
 /** The shared document's view of a page: `favorite` stays on this device. */
 fun Page.toJson() = JSONObject().apply {
     put("id", id); put("title", title)
+    icon?.let { put("icon", it) }
     put("blocks", JSONArray().also { a -> blocks.forEach { a.put(it.toJson()) } })
     put("tags", JSONArray(tags)); put("aliases", JSONArray(aliases))
     journal?.let { put("journal", it) }

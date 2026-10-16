@@ -45,6 +45,8 @@ export interface Stroke {
 export interface Page {
   id: string;
   title: string;
+  /** Emoji shown before the title in the sidebar, tabs and page header. */
+  icon?: string;
   blocks: Block[];
   tags: string[];
   aliases: string[];

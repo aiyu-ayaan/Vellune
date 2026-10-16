@@ -155,6 +155,7 @@ export const TopBar: React.FC<{
               </button>
             </div>
             <span className="topbar-title" title={activePage.title || 'Untitled'}>
+              {activePage.icon && <span className="topbar-emoji" aria-hidden="true">{activePage.icon}</span>}
               {activePage.title || 'Untitled'}
             </span>
             {!activePage.deletedAt && (
