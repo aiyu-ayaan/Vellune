@@ -73,6 +73,7 @@ The web/desktop client (`packages/ui/src/model.ts`) currently implements these `
 | `quote` | `> ` |
 | `callout` | Obsidian callout `> [!note] …`; any `[!type]` imports as a callout |
 | `code` | fenced block with optional language |
+| `math` | `$$\n…\n$$` display math (LaTeX rendered via KaTeX on web, code-style fallback with ∑ marker on Android) |
 | `divider` | `---` |
 | `image` | `![alt](src)` on its own line |
 | `file` | `[📎 name](src)` on its own line; `text` is the file name, `src` as for images (any type, 6 MB cap) |

@@ -177,8 +177,8 @@ Expose a workspace to AI agents via the [Model Context Protocol](https://modelco
 ### Phase 4: AFFiNE Feature Parity
 Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). Items already covered by MVP milestones are not repeated.
 - [ ] **Page ↔ Edgeless mode:** every doc switchable between document view and whiteboard view of the same blocks.
-- [x] **Rich blocks (part):** nested bulleted/numbered/to-do lists (Tab/Shift+Tab), toggle lists, quotes, callouts, dividers, tables (GFM round trip), images — web and Android.
-- [ ] **Rich blocks (rest):** LaTeX math, bookmarks/link previews, embeds (YouTube, Figma, GitHub), attachments, image captions.
+- [x] **Rich blocks (part):** nested bulleted/numbered/to-do lists (Tab/Shift+Tab), toggle lists, quotes, callouts, dividers, tables (GFM round trip), images, LaTeX math ($$ display math via KaTeX on web, code-style fallback on Android).
+- [ ] **Rich blocks (rest):** bookmarks/link previews, embeds (YouTube, Figma, GitHub), attachments, image captions.
 - [x] **Slash menu and inline toolbar:** `/` block insertion, formatting bar on selection.
 - [x] `@` mentions for pages and dates.
 - [ ] **Linked and synced docs:** inline doc links, embedded linked-doc cards, synced (live-transcluded) blocks.
