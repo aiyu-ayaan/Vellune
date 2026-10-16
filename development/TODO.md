@@ -160,7 +160,7 @@ Expose a workspace to AI agents via the [Model Context Protocol](https://modelco
 ## 🚀 Post-MVP Milestones (Future)
 
 ### Phase 2: Native Android Stylus & Inking Engine
-- [ ] Kotlin + Jetpack Compose app shell (`apps/android`).
+- [x] Kotlin + Jetpack Compose app shell (`apps/android`): Discord-style sliding panels on phones, docked sidebar and info panel on wide tablets.
 - [ ] Low-latency native Android `MotionEvent` stylus input pipeline.
 - [ ] Pressure-sensitive brush rendering (Pen, Pencil, Highlighter, Eraser).
 - [ ] Curve smoothing, Bezier interpolation, and palm rejection.
