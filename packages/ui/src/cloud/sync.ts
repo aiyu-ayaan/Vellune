@@ -106,6 +106,7 @@ class SyncEngine {
   private pending = new Map<string, PendingOp>();
   private inflight = new Set<string>();
   private subscribed = new Set<string>();
+  private pagesRefresh?: Promise<void>;
   private localBuf = new Map<string, Uint8Array[]>();
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private identity: Identity | null = null;
@@ -447,6 +448,12 @@ class SyncEngine {
       }
       case 'ack':
         this.dropPending(m.op_id);
+        return;
+      case 'pages':
+        // A page was created on another device: adopt it now instead of on the next reconnect.
+        this.pagesRefresh ??= this.refreshPages()
+          .catch((e) => console.warn('[vellune] refreshing pages failed', e))
+          .finally(() => (this.pagesRefresh = undefined));
         return;
       case 'presence': {
         const live = new Set<number>(m.conns ?? []);

@@ -84,6 +84,9 @@ pub async fn create(State(st): State<Shared>, user: AuthUser, Json(r): Json<Crea
             .await?;
     }
     tx.commit().await?;
+    if created {
+        st.hub.pages_changed(user.id);
+    }
     // Retrying a create is fine; claiming someone else's page ID is not.
     let row: Option<PageRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!("{PAGE_ROW} AND p.id = $2 AND m.role = 'owner'")))
         .bind(user.id)

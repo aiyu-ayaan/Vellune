@@ -350,6 +350,8 @@ class SyncEngine(private val api: Api, private val db: LocalDb) {
                 d.toPage(fav)?.let { page -> withContext(Dispatchers.Main) { bridge?.applyRemote(page) } }
             }
             "ack" -> dropPending(m.getString("op_id"))
+            // A page was created on another device: adopt it now, not on the next reconnect.
+            "pages" -> runCatching { refreshPages() }
             "presence" -> {
                 val users = m.optJSONArray("users") ?: JSONArray()
                 val list = List(users.length()) { users.getJSONObject(it).let { u -> PresenceUser(u.getString("id"), u.optString("name")) } }

@@ -57,6 +57,8 @@ struct Room {
 pub struct Hub {
     rooms: Mutex<HashMap<Uuid, Room>>,
     kick: broadcast::Sender<Uuid>,
+    /// A user's page list changed (a page was created on another device): their sockets refetch it.
+    pages: broadcast::Sender<Uuid>,
     next_conn: AtomicU64,
     pub online: AtomicUsize,
 }
@@ -66,6 +68,7 @@ impl Default for Hub {
         Self {
             rooms: Mutex::default(),
             kick: broadcast::channel(256).0,
+            pages: broadcast::channel(256).0,
             next_conn: AtomicU64::new(1),
             online: AtomicUsize::new(0),
         }
@@ -76,6 +79,11 @@ impl Hub {
     /// Close every socket of `user` (revoked session, disabled account, changed permission).
     pub fn kick(&self, user: Uuid) {
         let _ = self.kick.send(user);
+    }
+
+    /// Tell every socket of `user` that its page list changed.
+    pub fn pages_changed(&self, user: Uuid) {
+        let _ = self.pages.send(user);
     }
 
     pub fn close_anonymous(&self, page: Uuid) {
@@ -208,6 +216,7 @@ async fn connection(st: Shared, socket: WebSocket, user: Option<(Uuid, String)>,
 
     let mut subs: HashMap<Uuid, tokio::task::JoinHandle<()>> = HashMap::new();
     let mut kicks = st.hub.kick.subscribe();
+    let mut page_lists = st.hub.pages.subscribe();
     let mut beat = tokio::time::interval(HEARTBEAT);
     let mut last_seen = Instant::now();
     let mut window = (Instant::now(), 0u32);
@@ -275,6 +284,11 @@ async fn connection(st: Shared, socket: WebSocket, user: Option<(Uuid, String)>,
                 if let Ok(id) = k {
                     if user.as_ref().is_some_and(|u| u.0 == id) { break; }
                 }
+            }
+            p = page_lists.recv() => {
+                // Lagged: some notice was lost, so refetching is the safe answer too.
+                let mine = match p { Ok(id) => user.as_ref().is_some_and(|u| u.0 == id), Err(_) => user.is_some() };
+                if mine && !send(&out, json!({ "type": "pages" })).await { break; }
             }
             _ = beat.tick() => {
                 if last_seen.elapsed() > IDLE_TIMEOUT { break; }
