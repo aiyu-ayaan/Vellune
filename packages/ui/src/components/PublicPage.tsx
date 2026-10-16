@@ -6,6 +6,7 @@ import { importPageKey } from '../cloud/crypto';
 import { BlobImage } from './BlobImage';
 import { parseInline } from '../inline';
 import { highlightCode } from '../highlight';
+import { depth, listNumber } from '../outline';
 import './cloud.css';
 
 /** Inline marks for readers; wikilinks show as text because linked pages are not public. */
@@ -42,43 +43,48 @@ export const ReadOnlyBlocks: React.FC<{
   return (
     <>
       {shown.map((b, i) => {
-              const t = rich(b.text);
-              const mark = removedIds.has(b.id) ? ' diff-removed' : changes?.[b.id] ? ` diff-${changes[b.id]}` : '';
-              const cls = `block${b.color ? ` nc-${b.color}` : ''}${mark}`;
-              switch (b.kind) {
-                case 'heading': {
-                  const H = `h${Math.min(3, Math.max(1, b.level ?? 1)) + 1}` as 'h2' | 'h3' | 'h4';
-                  return <H key={b.id} className={cls}>{t}</H>;
-                }
-                case 'todo':
-                  return (
-                    <div key={b.id} className={cls}>
-                      <input type="checkbox" checked={!!b.checked} readOnly aria-label={b.checked ? 'Done' : 'Not done'} /> {t}
-                    </div>
-                  );
-                case 'bullet':
-                  return <div key={b.id} className={cls}>• {t}</div>;
-                case 'numbered': {
-                  let n = 1;
-                  while (shown[i - n]?.kind === 'numbered') n++;
-                  return <div key={b.id} className={cls}>{n}. {t}</div>;
-                }
-                case 'quote':
-                  return <blockquote key={b.id} className={cls}>{t}</blockquote>;
-                case 'callout':
-                  return <aside key={b.id} className={`${cls} public-callout`}>{t}</aside>;
-                case 'code':
-                  return <pre key={b.id} className={`public-code${mark}`}><code dangerouslySetInnerHTML={{ __html: highlightCode(b.text, b.language) }} /></pre>;
-                case 'image':
-                  return b.src ? <BlobImage key={b.id} pageId={page.id} src={b.src} alt={b.text} className={`public-image${mark}`} pageKey={pageKey} /> : null;
-                case 'divider':
-                  return <hr key={b.id} className={mark.trim() || undefined} />;
-                default:
-                  return <p key={b.id} className={cls}>{t}</p>;
-              }
-            })}
+        const el = block(b, i);
+        // Readers see every toggle open; nesting is a left offset.
+        return el && b.indent ? React.cloneElement(el, { style: { marginLeft: b.indent * 24 } }) : el;
+      })}
     </>
   );
+
+  function block(b: Block, i: number): React.ReactElement<{ style?: React.CSSProperties }> | null {
+    const t = rich(b.text);
+    const mark = removedIds.has(b.id) ? ' diff-removed' : changes?.[b.id] ? ` diff-${changes[b.id]}` : '';
+    const cls = `block${b.color ? ` nc-${b.color}` : ''}${mark}`;
+    switch (b.kind) {
+      case 'heading': {
+        const H = `h${Math.min(3, Math.max(1, b.level ?? 1)) + 1}` as 'h2' | 'h3' | 'h4';
+        return <H key={b.id} className={cls}>{t}</H>;
+      }
+      case 'todo':
+        return (
+          <div key={b.id} className={cls}>
+            <input type="checkbox" checked={!!b.checked} readOnly aria-label={b.checked ? 'Done' : 'Not done'} /> {t}
+          </div>
+        );
+      case 'bullet':
+        return <div key={b.id} className={cls}>{['•', '◦', '▪'][depth(b) % 3]} {t}</div>;
+      case 'toggle':
+        return <div key={b.id} className={cls}>▾ {t}</div>;
+      case 'numbered':
+        return <div key={b.id} className={cls}>{listNumber(shown, i)}. {t}</div>;
+      case 'quote':
+        return <blockquote key={b.id} className={cls}>{t}</blockquote>;
+      case 'callout':
+        return <aside key={b.id} className={`${cls} public-callout`}>{t}</aside>;
+      case 'code':
+        return <pre key={b.id} className={`public-code${mark}`}><code dangerouslySetInnerHTML={{ __html: highlightCode(b.text, b.language) }} /></pre>;
+      case 'image':
+        return b.src ? <BlobImage key={b.id} pageId={page.id} src={b.src} alt={b.text} className={`public-image${mark}`} pageKey={pageKey} /> : null;
+      case 'divider':
+        return <hr key={b.id} className={mark.trim() || undefined} />;
+      default:
+        return <p key={b.id} className={cls}>{t}</p>;
+    }
+  }
 };
 
 /** Read-only, live-updating view of a published page at /share/{id}#k={key}. */

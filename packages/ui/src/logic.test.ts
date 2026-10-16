@@ -164,3 +164,43 @@ describe('page icons', () => {
     expect(docToPage(doc)?.icon).toBeUndefined();
   });
 });
+
+describe('nested blocks', () => {
+  it('round-trips nested lists, toggles and their child paragraphs', () => {
+    const page = newPage('Nest', {
+      blocks: [
+        newBlock('bullet', 'parent'),
+        newBlock('bullet', 'child', { indent: 1 }),
+        newBlock('numbered', 'grandchild', { indent: 2 }),
+        newBlock('toggle', 'Details'),
+        newBlock('paragraph', 'hidden text\nsecond line', { indent: 1 }),
+        newBlock('todo', 'task', { indent: 1, checked: true }),
+        newBlock('paragraph', 'after'),
+      ],
+    });
+    const back = markdownToPage(pageToMarkdown(page), 'x').blocks;
+    expect(back.map((b) => [b.kind, b.text, b.indent ?? 0])).toEqual(page.blocks.map((b) => [b.kind, b.text, b.indent ?? 0]));
+    expect(back[5].checked).toBe(true);
+  });
+
+  it('folds toggles, shifts subtrees and numbers per level', async () => {
+    const { visibleBlocks, shiftIndent, listNumber, clampIndent } = await import('./outline');
+    const bs = [
+      newBlock('toggle', 't'),
+      newBlock('numbered', 'a', { indent: 1 }),
+      newBlock('numbered', 'a1', { indent: 2 }),
+      newBlock('numbered', 'b', { indent: 1 }),
+      newBlock('paragraph', 'out'),
+    ];
+    expect(visibleBlocks(bs, new Set([bs[0].id])).map((b) => b.text)).toEqual(['t', 'out']);
+    expect(listNumber(bs, 3)).toBe(2);
+    expect(listNumber(bs, 2)).toBe(1);
+    expect(clampIndent(bs, 4, 5)).toBe(2);
+    expect(clampIndent(bs, 0, 3)).toBe(0);
+    // Outdenting "a" carries its child along.
+    const out = shiftIndent(bs, 1, -1);
+    expect(out.map((b) => b.indent ?? 0)).toEqual([0, 0, 1, 1, 0]);
+    // A block cannot jump two levels below its predecessor.
+    expect(shiftIndent(bs, 4, 1)[4].indent).toBe(1);
+  });
+});

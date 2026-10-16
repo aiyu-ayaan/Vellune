@@ -301,3 +301,18 @@
 .icon-custom .menu-item { width: auto; }
 .page-emoji { display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; }
 .topbar-emoji { margin-right: 6px; }
+
+/* ---------- toggles ---------- */
+.toggle-caret {
+  display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 24px; flex-shrink: 0;
+  border: 0; border-radius: 4px; background: transparent; color: var(--text-secondary, var(--text-primary)); cursor: pointer; padding: 0;
+}
+.toggle-caret svg { transition: transform var(--dur-fast) ease; }
+.toggle-caret.open svg { transform: rotate(90deg); }
+.toggle-caret.empty { color: var(--text-muted); }
+@media (hover: hover) and (pointer: fine) { .toggle-caret:hover { background: var(--bg-hover); } }
+.toggle-empty {
+  display: block; margin: 0 0 2px 52px; padding: 2px 4px; border: 0; background: transparent; border-radius: 4px;
+  color: var(--text-muted); font-size: 14px; cursor: pointer; text-align: left;
+}
+@media (hover: hover) and (pointer: fine) { .toggle-empty:hover { background: var(--bg-hover); } }

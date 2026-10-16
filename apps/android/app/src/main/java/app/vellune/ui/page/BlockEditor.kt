@@ -58,6 +58,9 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardHide
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.automirrored.outlined.FormatIndentDecrease
+import androidx.compose.material.icons.automirrored.outlined.FormatIndentIncrease
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Title
@@ -84,6 +87,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -108,7 +112,11 @@ import app.vellune.Vellune
 import app.vellune.core.Block
 import app.vellune.core.LinkIndex
 import app.vellune.core.Page
+import app.vellune.core.listNumber
+import app.vellune.core.shiftIndent
+import app.vellune.core.subtreeEnd
 import app.vellune.core.todayKey
+import app.vellune.core.visibleBlocks
 import app.vellune.ui.AppState
 import app.vellune.ui.Dest
 import kotlinx.coroutines.launch
@@ -127,6 +135,7 @@ private val TURN_INTO = listOf(
     Kind("Quote", "quote", null, ">", "blockquote citation"),
     Kind("Callout", "callout", null, "!>", "note info tip warning highlight"),
     Kind("Code block", "code", null, "```", "code snippet pre"),
+    Kind("Toggle list", "toggle", null, "+", "toggle collapse fold details expand"),
 )
 
 /** Markdown typed at the start of a paragraph turns it into another block, as on the web. */
@@ -138,6 +147,7 @@ private val SHORTCUTS: List<Pair<String, (Block) -> Block>> = listOf(
     "[] " to { b -> b.copy(kind = "todo", checked = false) },
     "[ ] " to { b -> b.copy(kind = "todo", checked = false) },
     "[x] " to { b -> b.copy(kind = "todo", checked = true) },
+    "+ " to { b -> b.copy(kind = "toggle") },
     "- " to { b -> b.copy(kind = "bullet") },
     "* " to { b -> b.copy(kind = "bullet") },
     "1. " to { b -> b.copy(kind = "numbered") },
@@ -167,7 +177,7 @@ private fun findTrigger(text: String, caret: Int): Suggest? {
     return null
 }
 
-private fun Block.continues() = kind in setOf("bullet", "numbered", "todo")
+private fun Block.continues() = kind in setOf("bullet", "numbered", "todo", "toggle")
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -186,6 +196,8 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
     var focusTarget by remember(page.id) { mutableStateOf<Pair<String, Int>?>(null) }
     var suggest by remember(page.id) { mutableStateOf<Pair<String, Suggest>?>(null) }
     val titleFocus = remember { FocusRequester() }
+    // Folded toggles are a view choice on this screen, not part of the shared page.
+    var folded by remember(page.id) { mutableStateOf(emptySet<String>()) }
     val list = rememberLazyListState()
     val blocks = page.blocks
 
@@ -220,20 +232,26 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
         nav.jumpTo = null
     }
 
+    fun indentBy(b: Block, delta: Int) = edit { bs -> shiftIndent(bs, bs.indexOfFirst { it.id == b.id }, delta) }
+
     fun split(b: Block, before: String, afterLines: List<String>) {
         if (afterLines.size == 1 && before.isEmpty() && afterLines[0].isEmpty() && b.continues()) {
-            // Enter on an empty list item leaves the list.
-            replace(b.copy(kind = "paragraph", checked = null))
+            // Enter on an empty list item steps out one level, then leaves the list.
+            if (b.depth > 0) indentBy(b, -1) else replace(b.copy(kind = "paragraph", checked = null))
             fields[b.id] = TextFieldValue(ZWSP.toString(), TextRange(1))
             return
         }
-        val next = afterLines.mapIndexed { i, line ->
-            if (b.continues()) Block(kind = b.kind, text = line, checked = if (b.kind == "todo") false else null)
-            else Block(text = line)
+        // An open toggle's Enter writes its first child; a folded one adds a sibling after its subtree.
+        val intoToggle = b.kind == "toggle" && b.id !in folded
+        val depth = (b.depth + if (intoToggle) 1 else 0).takeIf { it > 0 }
+        val next = afterLines.map { line ->
+            if (b.continues() && !intoToggle) Block(kind = b.kind, text = line, checked = if (b.kind == "todo") false else null, indent = depth)
+            else Block(text = line, indent = depth)
         }
         edit { bs ->
             val at = bs.indexOfFirst { it.id == b.id }
-            bs.take(at) + b.copy(text = before) + next + bs.drop(at + 1)
+            val to = if (b.kind == "toggle" && !intoToggle) subtreeEnd(bs, at) else at + 1
+            bs.take(at) + b.copy(text = before) + bs.subList(at + 1, to) + next + bs.drop(to)
         }
         fields[b.id] = TextFieldValue(ZWSP + before, TextRange(before.length + 1))
         val last = next.last()
@@ -247,11 +265,17 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
             focusAt(b.id, 0)
             return
         }
+        if (b.depth > 0) {
+            indentBy(b, -1)
+            focusAt(b.id, 0)
+            return
+        }
         if (i <= 0) {
             fields[b.id] = TextFieldValue(ZWSP + b.text, TextRange(1))
             return
         }
-        val prev = blocks[i - 1]
+        val shown = visibleBlocks(blocks, folded)
+        val prev = shown.getOrNull(shown.indexOfFirst { it.id == b.id } - 1) ?: return
         if (prev.kind == "divider" || prev.kind == "image") {
             edit { bs -> bs.filterNot { it.id == prev.id } }
             fields[b.id] = TextFieldValue(ZWSP + b.text, TextRange(1))
@@ -355,13 +379,14 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                     HorizontalDivider(Modifier.padding(vertical = 12.dp), color = colors.outlineVariant)
                 }
             }
-            itemsIndexed(blocks, key = { _, b -> b.id }) { i, b ->
-                val number = remember(blocks, i) {
-                    if (b.kind != "numbered") 0 else (i downTo 0).takeWhile { blocks[it].kind == "numbered" }.count()
-                }
-                Box(Modifier.widthIn(max = 760.dp).fillMaxWidth().padding(horizontal = 24.dp).animateItem()) {
+            itemsIndexed(visibleBlocks(blocks, folded), key = { _, b -> b.id }) { _, b ->
+                val i = blocks.indexOfFirst { it.id == b.id }
+                val number = remember(blocks, i) { if (b.kind != "numbered") 0 else listNumber(blocks, i) }
+                Box(Modifier.widthIn(max = 760.dp).fillMaxWidth().padding(start = 24.dp + 24.dp * b.depth, end = 24.dp).animateItem()) {
                     BlockRow(
                         b = b, number = number, field = fields[b.id] ?: TextFieldValue(ZWSP + b.text),
+                        folded = b.id in folded, hasKids = subtreeEnd(blocks, i) > i + 1,
+                        onFold = { folded = if (b.id in folded) folded - b.id else folded + b.id },
                         focused = focused == b.id, inline = inline, requester = requester(b.id), pageId = page.id, app = app,
                         onFocus = { has -> if (has) focused = b.id else if (focused == b.id) { focused = null; suggest = null } },
                         onChange = { onChange(b, it) },
@@ -434,6 +459,7 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                         }
                         focusAt(b.id, (fields[b.id]?.selection?.end ?: 1) - 1)
                     },
+                    onIndent = { d -> indentBy(b, d); focusAt(b.id, (fields[b.id]?.selection?.end ?: 1) - 1) },
                     onDelete = {
                         val i = blocks.indexOfFirst { it.id == b.id }
                         edit { bs -> bs.filterNot { it.id == b.id } }
@@ -451,6 +477,9 @@ private fun BlockRow(
     b: Block,
     number: Int,
     field: TextFieldValue,
+    folded: Boolean,
+    hasKids: Boolean,
+    onFold: () -> Unit,
     focused: Boolean,
     inline: InlineColors,
     requester: FocusRequester,
@@ -502,7 +531,12 @@ private fun BlockRow(
     Row(Modifier.fillMaxWidth().padding(top = topPad, bottom = 2.dp).then(container), verticalAlignment = Alignment.Top) {
         when (b.kind) {
             "todo" -> Checkbox(checked = b.checked == true, onCheckedChange = onCheck, modifier = Modifier.size(32.dp).padding(end = 4.dp))
-            "bullet" -> Text("•", style = style, modifier = Modifier.width(24.dp))
+            "bullet" -> Text(listOf("•", "◦", "▪")[b.depth % 3], style = style, modifier = Modifier.width(24.dp))
+            "toggle" -> Icon(
+                Icons.Outlined.ChevronRight, if (folded) "Expand" else "Collapse",
+                Modifier.padding(top = 2.dp, end = 4.dp).size(22.dp).clip(CircleShape).clickable(onClick = onFold).rotate(if (folded) 0f else 90f),
+                tint = if (hasKids) colors.onSurface else colors.outline,
+            )
             "numbered" -> Text("$number.", style = style, modifier = Modifier.width(28.dp))
             "quote" -> Box(Modifier.padding(end = 12.dp).width(3.dp).height(26.dp).background(colors.primary, CircleShape))
             "callout" -> Text("💡", style = style, modifier = Modifier.padding(end = 10.dp))
@@ -603,6 +637,7 @@ private fun BlockToolbar(
     onLink: () -> Unit,
     onImage: () -> Unit,
     onMove: (Int) -> Unit,
+    onIndent: (Int) -> Unit,
     onDelete: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -628,6 +663,8 @@ private fun BlockToolbar(
             IconButton(onClick = onLink) { Icon(Icons.Outlined.Link, "Link to page") }
             IconButton(onClick = onImage) { Icon(Icons.Outlined.Image, "Image") }
             VerticalDivider(Modifier.height(24.dp).padding(horizontal = 4.dp))
+            IconButton(onClick = { onIndent(-1) }, enabled = b.depth > 0) { Icon(Icons.AutoMirrored.Outlined.FormatIndentDecrease, "Outdent") }
+            IconButton(onClick = { onIndent(1) }) { Icon(Icons.AutoMirrored.Outlined.FormatIndentIncrease, "Indent") }
             IconButton(onClick = { onMove(-1) }) { Icon(Icons.Outlined.KeyboardArrowUp, "Move up") }
             IconButton(onClick = { onMove(1) }) { Icon(Icons.Outlined.KeyboardArrowDown, "Move down") }
             IconButton(onClick = onDelete) { Icon(Icons.Outlined.Delete, "Delete block") }

@@ -23,7 +23,7 @@ mod jni_api;
 const META_KEYS: [&str; 13] = [
     "title", "icon", "tags", "aliases", "journal", "extraFrontmatter", "createdAt", "updatedAt", "deletedAt", "parentId", "folder", "order", "mode",
 ];
-const BLOCK_KEYS: [&str; 6] = ["kind", "level", "checked", "language", "color", "src"];
+const BLOCK_KEYS: [&str; 7] = ["kind", "level", "checked", "language", "color", "src", "indent"];
 
 pub fn new_doc() -> Doc {
     Doc::with_options(Options { offset_kind: OffsetKind::Utf16, ..Options::default() })

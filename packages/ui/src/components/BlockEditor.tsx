@@ -46,11 +46,12 @@ import { CursorPos, RemoteCursor, sync, useSync } from '../cloud/sync';
 import { CODE_LANGUAGES, canonicalLanguage, highlightCode } from '../highlight';
 import { openContextMenu } from './ContextMenu';
 import { routePath } from '../route';
+import { depth, listNumber, shiftIndent, subtreeEnd, visibleBlocks } from '../outline';
 
 type LucideIcon = typeof Type;
 
-const TEXT_KINDS: BlockKind[] = ['paragraph', 'heading', 'todo', 'bullet', 'numbered', 'quote', 'callout', 'code'];
-const LIST_KINDS: BlockKind[] = ['bullet', 'numbered', 'todo'];
+const TEXT_KINDS: BlockKind[] = ['paragraph', 'heading', 'todo', 'bullet', 'numbered', 'toggle', 'quote', 'callout', 'code'];
+const LIST_KINDS: BlockKind[] = ['bullet', 'numbered', 'todo', 'toggle'];
 
 const TURN_INTO: { label: string; kind: BlockKind; level?: number; icon: LucideIcon }[] = [
   { label: 'Text', kind: 'paragraph', icon: Type },
@@ -61,6 +62,7 @@ const TURN_INTO: { label: string; kind: BlockKind; level?: number; icon: LucideI
   { label: 'To-do list', kind: 'todo', icon: ListChecks },
   { label: 'Bulleted list', kind: 'bullet', icon: List },
   { label: 'Numbered list', kind: 'numbered', icon: ListOrdered },
+  { label: 'Toggle list', kind: 'toggle', icon: ChevronRight },
   { label: 'Quote', kind: 'quote', icon: Quote },
   { label: 'Callout', kind: 'callout', icon: Lightbulb },
   { label: 'Code block', kind: 'code', icon: Code2 },
@@ -125,7 +127,8 @@ function shortcut(text: string): { kind: BlockKind; strip: number; extra?: Parti
   if (todo) return { kind: 'todo', strip: todo[0].length, extra: { checked: todo[2].toLowerCase() === 'x' } };
   const num = /^1[.)] /.exec(text);
   if (num) return { kind: 'numbered', strip: num[0].length };
-  if (/^[-*+] /.test(text)) return { kind: 'bullet', strip: 2 };
+  if (text.startsWith('+ ')) return { kind: 'toggle', strip: 2 };
+  if (/^[-*] /.test(text)) return { kind: 'bullet', strip: 2 };
   if (text.startsWith('> ')) return { kind: 'quote', strip: 2 };
   if (text.startsWith('!> ')) return { kind: 'callout', strip: 3 };
   if (text.startsWith('```')) return { kind: 'code', strip: 3 };
@@ -417,6 +420,25 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   });
   const [copied, setCopied] = useState<string | null>(null);
   const [iconOpen, setIconOpen] = useState(false);
+  // Folded toggles are a per-device view choice, like a collapsed sidebar folder; never synced.
+  const [collapsedIds, setCollapsed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('vellune:collapsed') ?? '[]'));
+    } catch {
+      return new Set();
+    }
+  });
+  const toggleFold = (id: string) =>
+    setCollapsed((c) => {
+      const next = new Set(c);
+      if (!next.delete(id)) next.add(id);
+      try {
+        localStorage.setItem('vellune:collapsed', JSON.stringify([...next].slice(-500)));
+      } catch {
+        /* storage blocked */
+      }
+      return next;
+    });
   const closeIcon = useCallback(() => setIconOpen(false), []);
   const [drag, setDrag] = useState<{ id: string; over?: string; after?: boolean } | null>(null);
   const handleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -564,6 +586,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       { id: 'todo', label: 'To-do list', hint: '[]', group: L, icon: ListChecks, keywords: 'todo task checkbox check', run: turn('todo', { checked: false }) },
       { id: 'bullet', label: 'Bulleted list', hint: '-', group: L, icon: List, keywords: 'bullet unordered ul', run: turn('bullet') },
       { id: 'numbered', label: 'Numbered list', hint: '1.', group: L, icon: ListOrdered, keywords: 'number ordered ol', run: turn('numbered') },
+      { id: 'toggle', label: 'Toggle list', hint: '+', group: L, icon: ChevronRight, keywords: 'toggle collapse fold details expand', run: turn('toggle') },
       { id: 'quote', label: 'Quote', hint: '>', group: B, icon: Quote, keywords: 'blockquote citation', run: turn('quote') },
       { id: 'callout', label: 'Callout', hint: '!>', group: B, icon: Lightbulb, keywords: 'note info tip warning highlight', run: turn('callout') },
       { id: 'code', label: 'Code block', hint: '```', group: B, icon: Code2, keywords: 'code snippet pre', run: turn('code') },
@@ -764,8 +787,12 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     setMenu(trig ? { ...trig, blockId: block.id, index: menu?.kind === trig.kind && menu.blockId === block.id ? Math.min(menu.index, 50) : 0 } : null);
   };
 
+  const shown = useMemo(() => visibleBlocks(page.blocks, collapsedIds), [page.blocks, collapsedIds]);
+  const indexOf = useMemo(() => new Map(page.blocks.map((b, i) => [b.id, i])), [page.blocks]);
+  /** Nearest visible text block above (-1) or below (1) block `i`, skipping folded children. */
   const neighbor = (i: number, dir: -1 | 1) => {
-    for (let j = i + dir; j >= 0 && j < page.blocks.length; j += dir) if (page.blocks[j].kind !== 'divider' && page.blocks[j].kind !== 'image') return page.blocks[j];
+    const at = shown.findIndex((b) => b.id === page.blocks[i].id);
+    for (let j = at + dir; j >= 0 && j < shown.length; j += dir) if (shown[j].kind !== 'divider' && shown[j].kind !== 'image') return shown[j];
     return undefined;
   };
 
@@ -818,6 +845,13 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       return;
     }
 
+    if (e.key === 'Tab' && block.kind !== 'code') {
+      e.preventDefault();
+      update((bs) => shiftIndent(bs, bs.findIndex((b) => b.id === block.id), e.shiftKey ? -1 : 1));
+      pendingFocus.current = { id: block.id, caret: pos };
+      return;
+    }
+
     if (e.key === 'Tab' && block.kind === 'code') {
       e.preventDefault();
       const text = `${block.text.slice(0, pos)}  ${block.text.slice(el.selectionEnd)}`;
@@ -831,20 +865,30 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       if (e.shiftKey) return; // soft line break
       e.preventDefault();
       if (block.text === '' && (LIST_KINDS.includes(block.kind) || block.kind === 'quote' || block.kind === 'callout')) {
-        patchBlock(block.id, (b) => ({ ...b, kind: 'paragraph', checked: undefined }));
+        // An empty list item steps out one level first, then leaves the list.
+        if (depth(block) > 0 && LIST_KINDS.includes(block.kind)) update((bs) => shiftIndent(bs, i, -1));
+        else patchBlock(block.id, (b) => ({ ...b, kind: 'paragraph', checked: undefined }));
+        pendingFocus.current = { id: block.id, caret: 0 };
         return;
       }
       if (pos === 0 && block.text !== '' && collapsed) {
-        update((bs) => [...bs.slice(0, i), newBlock(), ...bs.slice(i)]);
+        update((bs) => [...bs.slice(0, i), newBlock('paragraph', '', block.indent ? { indent: block.indent } : {}), ...bs.slice(i)]);
         pendingFocus.current = { id: block.id, caret: 0 };
         return;
       }
       const before = block.text.slice(0, pos);
       const after = block.text.slice(el.selectionEnd);
-      const kind: BlockKind = LIST_KINDS.includes(block.kind) ? block.kind : 'paragraph';
-      const next = newBlock(kind, block.kind === 'code' ? '' : after, kind === 'todo' ? { checked: false } : {});
-      patchBlock(block.id, (b) => ({ ...b, text: block.kind === 'code' ? block.text : before }));
-      insertAfter(block.id, next);
+      // An open toggle's Enter writes its first child; a folded one adds a sibling after its subtree.
+      const intoToggle = block.kind === 'toggle' && !collapsedIds.has(block.id);
+      const kind: BlockKind = intoToggle ? 'paragraph' : LIST_KINDS.includes(block.kind) ? block.kind : 'paragraph';
+      const indent = depth(block) + (intoToggle ? 1 : 0);
+      const next = newBlock(kind, block.kind === 'code' ? '' : after, { ...(kind === 'todo' ? { checked: false } : {}), ...(indent ? { indent } : {}) });
+      update((bs) => {
+        const at = bs.findIndex((b) => b.id === block.id);
+        const to = block.kind === 'toggle' && !intoToggle ? subtreeEnd(bs, at) : at + 1;
+        const cur = { ...bs[at], text: block.kind === 'code' ? block.text : before };
+        return [...bs.slice(0, at), cur, ...bs.slice(at + 1, to), next, ...bs.slice(to)];
+      });
       focusBlock(next.id, 0);
       setMenu(null);
       return;
@@ -856,7 +900,13 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         patchBlock(block.id, (b) => ({ ...b, kind: 'paragraph', level: undefined, checked: undefined }));
         return;
       }
-      const prev = page.blocks[i - 1];
+      if (depth(block) > 0) {
+        e.preventDefault();
+        update((bs) => shiftIndent(bs, i, -1));
+        pendingFocus.current = { id: block.id, caret: 0 };
+        return;
+      }
+      const prev = shown[shown.findIndex((b) => b.id === block.id) - 1];
       if (!prev) return;
       e.preventDefault();
       if (prev.kind === 'divider' || prev.kind === 'image') {
@@ -1168,7 +1218,6 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   const backlinkCount = index.backlinks.get(page.id)?.length ?? 0;
   const words = page.blocks.reduce((n, b) => n + (b.text.match(/\S+/g)?.length ?? 0), 0);
 
-  let num = 0;
   return (
     <div className="editor-scroll-area">
       {headings.length > 1 && (
@@ -1330,8 +1379,11 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
               void addImages([...e.dataTransfer.files]);
             }}
           >
-            {page.blocks.map((block, i) => {
-              num = block.kind === 'numbered' ? num + 1 : 0;
+            {shown.map((block) => {
+              const i = indexOf.get(block.id)!;
+              const num = block.kind === 'numbered' ? listNumber(page.blocks, i) : 0;
+              const hasKids = subtreeEnd(page.blocks, i) > i + 1;
+              const folded = collapsedIds.has(block.id);
               const isDrop = drag && drag.over === block.id && drag.id !== block.id;
               return (
                 <div
@@ -1375,6 +1427,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                           ] as const)),
                     ]);
                   }}
+                  style={block.indent ? { paddingLeft: block.indent * 24 } : undefined}
                   className={`block-row block-${block.kind}${block.kind === 'heading' ? ` block-heading-${block.level ?? 1}` : ''}${active === block.id ? ' editing' : ''}${drag?.id === block.id ? ' dragging' : ''}${isDrop ? (drag.after ? ' drop-after' : ' drop-before') : ''}`}
                   onDragOver={(e) => {
                     if (!drag) return;
@@ -1497,11 +1550,35 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                             onChange={(e) => patchBlock(block.id, (b) => ({ ...b, checked: e.target.checked }))}
                           />
                         )}
-                        {block.kind === 'bullet' && <span className="bullet-dot" aria-hidden="true">•</span>}
+                        {block.kind === 'bullet' && <span className="bullet-dot" aria-hidden="true">{['•', '◦', '▪'][depth(block) % 3]}</span>}
+                        {block.kind === 'toggle' && (
+                          <button
+                            type="button"
+                            className={`toggle-caret${folded ? '' : ' open'}${hasKids ? '' : ' empty'}`}
+                            aria-label={folded ? 'Expand' : 'Collapse'}
+                            aria-expanded={!folded}
+                            onClick={() => toggleFold(block.id)}
+                          >
+                            <ChevronRight size={16} aria-hidden="true" />
+                          </button>
+                        )}
                         {block.kind === 'numbered' && <span className="list-num" aria-hidden="true">{num}.</span>}
                         {block.kind === 'callout' && <Lightbulb size={18} className="callout-icon" aria-hidden="true" />}
                         <div className={`block-body${block.kind === 'todo' && block.checked ? ' done' : ''}`}>{editable(block, i)}</div>
                       </div>
+                    )}
+                    {block.kind === 'toggle' && !folded && !hasKids && !readOnly && (
+                      <button
+                        type="button"
+                        className="toggle-empty"
+                        onClick={() => {
+                          const child = newBlock('paragraph', '', { indent: depth(block) + 1 });
+                          insertAfter(block.id, child);
+                          focusBlock(child.id, 0);
+                        }}
+                      >
+                        Empty toggle. Click to add a block inside.
+                      </button>
                     )}
                     {menu?.blockId === block.id && TEXT_KINDS.includes(block.kind) && (
                       <SuggestMenu

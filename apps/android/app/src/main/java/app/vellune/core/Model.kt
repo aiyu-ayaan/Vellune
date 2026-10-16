@@ -18,9 +18,13 @@ data class Block(
     val language: String? = null,
     val src: String? = null,
     val color: String? = null,
+    /** Nesting depth; null is 0. A child of the nearest block above with a smaller indent. */
+    val indent: Int? = null,
 ) {
+    val depth get() = indent ?: 0
+
     companion object {
-        val KINDS = listOf("paragraph", "heading", "todo", "bullet", "numbered", "quote", "callout", "code", "divider", "image")
+        val KINDS = listOf("paragraph", "heading", "todo", "bullet", "numbered", "toggle", "quote", "callout", "code", "divider", "image")
     }
 }
 
@@ -107,12 +111,13 @@ fun blockFromJson(o: JSONObject) = Block(
     language = o.optStr("language"),
     src = o.optStr("src"),
     color = o.optStr("color"),
+    indent = o.optDbl("indent")?.toInt()?.takeIf { it > 0 },
 )
 
 fun Block.toJson() = JSONObject().apply {
     put("id", id); put("kind", kind); put("text", text)
     level?.let { put("level", it) }; checked?.let { put("checked", it) }; language?.let { put("language", it) }
-    src?.let { put("src", it) }; color?.let { put("color", it) }
+    src?.let { put("src", it) }; color?.let { put("color", it) }; indent?.let { put("indent", it) }
 }
 
 fun itemFromJson(o: JSONObject) = CanvasItem(

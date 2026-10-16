@@ -78,7 +78,17 @@ function yamlScalar(s: string): string {
   return plain ? s : `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
+const LIST_KINDS = new Set<Block['kind']>(['todo', 'bullet', 'numbered', 'toggle']);
+
+/** List items and paragraphs nest by two spaces per level (a paragraph under a list item is its
+ * continuation in CommonMark); other kinds have no Markdown nesting and export flat. */
 function renderBlock(b: Block): string {
+  const lead = LIST_KINDS.has(b.kind) || b.kind === 'paragraph' ? '  '.repeat(b.indent ?? 0) : '';
+  const hang = lead && LIST_KINDS.has(b.kind) ? '  ' : ''; // continuation lines sit under the item text
+  return lead + renderFlat(b).split('\n').join(`\n${lead}${hang}`);
+}
+
+function renderFlat(b: Block): string {
   switch (b.kind) {
     case 'heading':
       return `${'#'.repeat(Math.min(6, Math.max(1, b.level ?? 1)))} ${b.text}`;
@@ -86,6 +96,9 @@ function renderBlock(b: Block): string {
       return `- [${b.checked ? 'x' : ' '}] ${b.text}`;
     case 'bullet':
       return `- ${b.text}`;
+    case 'toggle':
+      // `+` is a CommonMark bullet, so other apps show a list item; Vellune reads it back as a toggle.
+      return `+ ${b.text}`;
     case 'numbered':
       // CommonMark renumbers a list from its first marker, so every item can be "1.".
       return `1. ${b.text}`;
@@ -194,9 +207,14 @@ function parseBlocks(body: string): { blocks: Block[]; canvas?: Page['canvas'] }
   const blocks: Block[] = [];
   let canvas: Page['canvas'] | undefined;
   let paragraph: string[] = [];
+  let paraLead = 0;
   let quote: string[] = [];
   const flush = () => {
-    if (paragraph.length) blocks.push(newBlock('paragraph', paragraph.join('\n')));
+    if (paragraph.length) {
+      const nest = Math.min(6, Math.floor(paraLead / 2));
+      const lines = paragraph.map((l) => l.replace(new RegExp(`^[ \\t]{0,${paraLead}}`), ''));
+      blocks.push(newBlock('paragraph', lines.join('\n'), nest && blocks.length ? { indent: nest } : {}));
+    }
     const callout = quote.length ? /^\[!\w+\][+-]?\s?(.*)$/.exec(quote[0]) : null;
     if (callout) blocks.push(newBlock('callout', [callout[1], ...quote.slice(1)].join('\n')));
     else if (quote.length) blocks.push(newBlock('quote', quote.join('\n')));
@@ -246,19 +264,25 @@ function parseBlocks(body: string): { blocks: Block[]; canvas?: Page['canvas'] }
       continue;
     }
     const heading = /^(#{1,6})\s+(.*)$/.exec(t);
-    const todo = /^[-*]\s+\[([ xX])\]\s+(.*)$/.exec(t);
+    const todo = /^[-*+]\s+\[([ xX])\]\s+(.*)$/.exec(t);
+    const toggle = /^\+\s+(.*)$/.exec(t);
     const bullet = /^[-*]\s+(.*)$/.exec(t);
     const numbered = /^\d+[.)]\s+(.*)$/.exec(t);
-    if (heading || todo || bullet || numbered || /^(-{3,}|\*{3,})$/.test(t)) {
+    if (heading || todo || toggle || bullet || numbered || /^(-{3,}|\*{3,})$/.test(t)) {
       flush();
+      const lead = /^[ \t]*/.exec(line)![0].replace(/\t/g, '  ').length;
+      const nest = Math.min(6, Math.floor(lead / 2));
+      const indent = !heading && nest ? { indent: nest } : {};
       if (heading) blocks.push(newBlock('heading', heading[2].trim(), { level: heading[1].length }));
-      else if (todo) blocks.push(newBlock('todo', todo[2], { checked: todo[1] !== ' ' }));
+      else if (todo) blocks.push(newBlock('todo', todo[2], { checked: todo[1] !== ' ', ...indent }));
       else if (/^(-{3,}|\*{3,})$/.test(t)) blocks.push(newBlock('divider'));
-      else if (bullet) blocks.push(newBlock('bullet', bullet[1]));
-      else if (numbered) blocks.push(newBlock('numbered', numbered[1]));
+      else if (toggle) blocks.push(newBlock('toggle', toggle[1], indent));
+      else if (bullet) blocks.push(newBlock('bullet', bullet[1], indent));
+      else if (numbered) blocks.push(newBlock('numbered', numbered[1], indent));
       continue;
     }
     if (quote.length) flush();
+    if (!paragraph.length) paraLead = /^[ \t]*/.exec(line)![0].replace(/\t/g, '  ').length;
     paragraph.push(line);
   }
   flush();
