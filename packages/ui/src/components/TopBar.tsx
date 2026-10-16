@@ -7,6 +7,7 @@ import {
   Layout,
   Lock,
   MoreHorizontal,
+  PanelLeft,
   PanelRight,
   Star,
   Trash2,
@@ -58,9 +59,11 @@ const Presence: React.FC<{ pageId: string }> = ({ pageId }) => {
 };
 
 export const TopBar: React.FC<{
+  /** Set while the sidebar is collapsed: shows a button that brings it back. */
+  onOpenSidebar?: () => void;
   showInspector: boolean;
   onToggleInspector: () => void;
-}> = ({ showInspector, onToggleInspector }) => {
+}> = ({ onOpenSidebar, showInspector, onToggleInspector }) => {
   const { pages, activeId, view } = useStore((s) => s);
   const activePage = activeId ? pages[activeId] : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -130,6 +133,11 @@ export const TopBar: React.FC<{
       />
 
       <div className="topbar-left">
+        {onOpenSidebar && (
+          <button type="button" className="btn-icon" title="Show sidebar (Ctrl+\\)" aria-label="Show sidebar" onClick={onOpenSidebar}>
+            <PanelLeft size={16} aria-hidden="true" />
+          </button>
+        )}
         {activePage && view !== 'graph' && view !== 'database' && view !== 'trash' && (
           <>
             <div className="view-tabs" role="group" aria-label="Editor mode">

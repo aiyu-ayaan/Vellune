@@ -7,6 +7,7 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  PanelLeftClose,
   FilePlus,
   Folder,
   FolderInput,
@@ -511,7 +512,7 @@ const RenameInput: React.FC<{ initial: string; onDone: (v: string) => void }> = 
   );
 };
 
-export const Sidebar: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }) => {
+export const Sidebar: React.FC<{ onOpenSearch: () => void; onCollapse?: () => void }> = ({ onOpenSearch, onCollapse }) => {
   const { pages, activeId, view, databaseTag } = useStore((s) => s);
   const [theme, setThemeState] = React.useState<Theme>(getTheme());
 
@@ -579,7 +580,14 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }
           <span className="ws-avatar" aria-hidden="true">V</span>
           <span>Vellune</span>
         </div>
-        {userName && <Avatar name={userName} size={22} />}
+        <div className="sidebar-header-end">
+          {userName && <Avatar name={userName} size={22} />}
+          {onCollapse && (
+            <button type="button" className="btn-icon sidebar-collapse" title="Hide sidebar (Ctrl+\\)" aria-label="Hide sidebar" onClick={onCollapse}>
+              <PanelLeftClose size={16} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="sidebar-nav">

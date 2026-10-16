@@ -678,3 +678,17 @@ button, input, textarea { font-family: inherit; color: inherit; }
 .editor-fieldset:disabled .block-handle-wrap, .editor-fieldset:disabled .tag-add { display: none; }
 
 @media (prefers-reduced-motion: reduce) { .section-label .caret, .btn-primary, .nav-item, .page-list-item { transition: none; } }
+
+/* ---------- collapsible sidebar ---------- */
+.sidebar-header-end { display: flex; align-items: center; gap: 4px; }
+.sidebar { transition: margin-left var(--dur) var(--ease-out); }
+.sidebar-collapsed .sidebar { margin-left: -248px; visibility: hidden; transition: margin-left var(--dur) var(--ease-out), visibility 0s var(--dur); }
+.sidebar-backdrop { display: none; }
+@media (max-width: 900px) {
+  /* A drawer over the page instead of a column beside it. */
+  .sidebar { position: absolute; z-index: 300; left: 0; top: 0; bottom: 0; box-shadow: var(--shadow-popover); }
+  .sidebar-collapsed .sidebar { margin-left: 0; transform: translateX(-100%); }
+  .sidebar { transition: transform var(--dur) var(--ease-out); }
+  .sidebar-backdrop { display: block; position: absolute; inset: 0; z-index: 290; background: rgb(0 0 0 / 0.3); }
+}
+@media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }

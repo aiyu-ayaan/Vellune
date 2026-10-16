@@ -60,6 +60,32 @@ const Workspace: React.FC = () => {
   const { pages, activeId, view, loaded, databaseTag } = useStore((s) => s);
   const [showInspector, setShowInspector] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const narrow = () => typeof matchMedia === 'function' && matchMedia('(max-width: 900px)').matches;
+  // Docked sidebar remembers its state; on narrow screens it is a drawer that starts closed.
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (narrow()) return false;
+    try {
+      return localStorage.getItem('vellune:sidebar') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const toggleSidebar = (open?: boolean) =>
+    setSidebarOpen((o) => {
+      const next = open ?? !o;
+      if (!narrow()) {
+        try {
+          localStorage.setItem('vellune:sidebar', next ? '1' : '0');
+        } catch {
+          /* storage blocked */
+        }
+      }
+      return next;
+    });
+  // Opening a page from the drawer closes it.
+  useEffect(() => {
+    if (narrow()) setSidebarOpen(false);
+  }, [activeId, view]);
 
   useEffect(() => {
     store.load();
@@ -137,6 +163,10 @@ const Workspace: React.FC = () => {
         e.preventDefault();
         setShowCommandPalette((open) => !open);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault();
+        toggleSidebar();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -151,13 +181,15 @@ const Workspace: React.FC = () => {
   if (status === 'locked') return <KeyScreen mode="unlock" />;
 
   return (
-    <div className="vellune-container">
+    <div className={`vellune-container${sidebarOpen ? '' : ' sidebar-collapsed'}`}>
       {/* Navigation Sidebar */}
-      <Sidebar onOpenSearch={() => setShowCommandPalette(true)} />
+      <Sidebar onOpenSearch={() => setShowCommandPalette(true)} onCollapse={() => toggleSidebar(false)} />
+      {sidebarOpen && <div className="sidebar-backdrop" aria-hidden="true" onClick={() => toggleSidebar(false)} />}
 
       {/* Main Content Area */}
       <main className="main-content">
         <TopBar
+          onOpenSidebar={sidebarOpen ? undefined : () => toggleSidebar(true)}
           showInspector={showInspector}
           onToggleInspector={() => setShowInspector((v) => !v)}
         />
