@@ -12,6 +12,7 @@ members = [
     "crates/storage",
     "crates/sync-protocol",
     "crates/api-types",
+    "crates/mobile",
     "services/api",
     "services/sync",
     "services/workers",

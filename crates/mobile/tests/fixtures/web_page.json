@@ -1,0 +1,63 @@
+{
+  "id": "0b8f3c2e-1d4a-4c6b-9a7e-5f2d1c0b9a8e",
+  "title": "Shared from the web 🌙",
+  "blocks": [
+    {
+      "id": "b1",
+      "kind": "heading",
+      "level": 1,
+      "text": "Moonlit notes"
+    },
+    {
+      "id": "b2",
+      "kind": "todo",
+      "checked": true,
+      "text": "Write with a pen 😀"
+    },
+    {
+      "id": "b3",
+      "kind": "code",
+      "language": "rust",
+      "text": "fn main() {}"
+    }
+  ],
+  "tags": [
+    "canvas",
+    "guide"
+  ],
+  "aliases": [
+    "moon"
+  ],
+  "favorite": false,
+  "canvas": {
+    "items": [
+      {
+        "id": "note",
+        "type": "note",
+        "x": 0,
+        "y": 0,
+        "w": 640,
+        "h": 480
+      }
+    ],
+    "strokes": [
+      {
+        "id": "s1",
+        "points": [
+          10,
+          20,
+          0.5,
+          30.5,
+          40,
+          0.75
+        ],
+        "color": "#5b53a8",
+        "width": 3
+      }
+    ]
+  },
+  "createdAt": 1760600000000,
+  "updatedAt": 1760600123456,
+  "parentId": "folder-1",
+  "order": 2
+}

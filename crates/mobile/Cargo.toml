@@ -1,0 +1,15 @@
+[package]
+name = "vellune-mobile"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Yjs page documents for the native Android client, exposed over JNI"
+
+[lib]
+name = "vellune_mobile"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+yrs = "0.28"
+serde_json = { workspace = true }
+jni = "0.21"

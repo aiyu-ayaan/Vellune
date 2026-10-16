@@ -1,0 +1,19 @@
+{
+  "password": "correct horse battery staple",
+  "bundle": {
+    "kdf_salt": "aJcfaNxJS4qp09MklGc85A==",
+    "kdf_iterations": 600000,
+    "public_key": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "9HK-bQ8fETEoElmxwkC7i2wxSUDhEotmcfLZA10MaM0",
+      "y": "Ve0yP98jVBtFwRXPoUxf6F4ied4rEkh6LEJLRxj5jEc"
+    },
+    "wrapped_private_key": "jbhmXkCVNfxpf7fMTqxZI6If/KdAVdOD6YF3+WSmaoJI9Wp1ndK0rr57IT3YdJw1QfWp77g6QO60FlaIeHnCcwkWsZKrwKpkls6nhg9Za1Rx2FDzT2EqtfChGqBLdhM5XntvWDkyM0GF04/GhGTz1JT8Whck7ZItP0rqRpBwtiVBO5nJZk1QyUyZQ83UrSFT7l63nXXfFxcA9fPqE7VH0zWgxEpazg=="
+  },
+  "authHash": "wvNzdaEbtqnwV7pX2UXNbH+O1KCl1rP0DbUw0eUZ6BA=",
+  "wrappedPageKey": "eyJlcGsiOnsia3R5IjoiRUMiLCJjcnYiOiJQLTI1NiIsIngiOiJ6dGMtZjVPVHJlUFgtVXVtYmFyS09xUldRZXZsWlZRR2tVZTV5SVRES1BJIiwieSI6IkFodlF2Vi1iejAwWXZKWFFxa1NkMVdIRXJ2SERmTWM5ZWowODZBdHE3ekEifSwiY3QiOiJ6OXdKdHUzT2p1RFhZbHVKcFF4cWt6eVRJdWJNRzZrLzVJT093MEI3V3o3VzNpdjRUemJFWWdzaCtIclVZZG5CQUhtV0k1UlREVkVhVmlJRyJ9",
+  "pageKey": "aVGFmlfBYQdNjp7wGN4pDdCpeXh8V-nmQXw08nawiS0",
+  "sealed": "YFs59GcZ6MwFp97lfpEIUeJwpTP1nQqiwdBx1UVjh+o8MthdQmHqo/FGSF5t",
+  "plain": "sealed by the web"
+}

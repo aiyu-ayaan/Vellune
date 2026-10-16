@@ -1,0 +1,63 @@
+{
+  "aliases": [
+    "moon"
+  ],
+  "blocks": [
+    {
+      "id": "b1",
+      "kind": "heading",
+      "level": 1,
+      "text": "Moonlit notes"
+    },
+    {
+      "checked": true,
+      "id": "b2",
+      "kind": "todo",
+      "text": "Write with a pen 😀"
+    },
+    {
+      "id": "b3",
+      "kind": "code",
+      "language": "rust",
+      "text": "fn main() {}"
+    }
+  ],
+  "canvas": {
+    "items": [
+      {
+        "h": 480,
+        "id": "note",
+        "type": "note",
+        "w": 640,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "strokes": [
+      {
+        "color": "#5b53a8",
+        "id": "s1",
+        "points": [
+          10,
+          20,
+          0.5,
+          30.5,
+          40,
+          0.75
+        ],
+        "width": 3
+      }
+    ]
+  },
+  "createdAt": 1760600000000,
+  "favorite": false,
+  "id": "7c1e9d20-8b3f-4f6a-a2d5-0e9c8b7a6f5e",
+  "order": 2,
+  "parentId": "folder-1",
+  "tags": [
+    "canvas",
+    "guide"
+  ],
+  "title": "Written on Android ✍️",
+  "updatedAt": 1760600123456
+}
