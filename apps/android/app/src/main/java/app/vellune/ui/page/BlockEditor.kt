@@ -112,6 +112,8 @@ import app.vellune.Vellune
 import app.vellune.core.Block
 import app.vellune.core.LinkIndex
 import app.vellune.core.Page
+import app.vellune.core.instantiateTemplate
+import app.vellune.core.isTemplate
 import app.vellune.core.listNumber
 import app.vellune.core.shiftIndent
 import app.vellune.core.subtreeEnd
@@ -403,6 +405,18 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                         onDismiss = { suggest = null },
                         onPick = { insert, kind -> applySuggestion(b, s.second, insert, kind) },
                         onImage = { applySuggestion(b, s.second, ""); picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        onTemplate = { t ->
+                            applySuggestion(b, s.second, "")
+                            val copies = instantiateTemplate(t, page.title)
+                            if (copies.isNotEmpty()) {
+                                edit { bs ->
+                                    val at = bs.indexOfFirst { it.id == b.id }
+                                    val keep = bs[at].text.isNotBlank()
+                                    bs.take(if (keep) at + 1 else at) + copies + bs.drop(at + 1)
+                                }
+                                focusAt(copies.last().id, copies.last().text.length)
+                            }
+                        },
                         onDivider = {
                             applySuggestion(b, s.second, "")
                             val after = Block()
@@ -598,6 +612,7 @@ private fun SuggestMenu(
     onPick: (String, Kind?) -> Unit,
     onImage: () -> Unit,
     onDivider: () -> Unit,
+    onTemplate: (Page) -> Unit,
 ) {
     val q = s.query.trim()
     DropdownMenu(
@@ -614,6 +629,12 @@ private fun SuggestMenu(
                 if (q.isEmpty() || "image picture photo".contains(q, true)) DropdownMenuItem({ Text("Image") }, onImage, leadingIcon = { Icon(Icons.Outlined.Image, null) })
                 if (q.isEmpty() || "divider rule line".contains(q, true)) DropdownMenuItem({ Text("Divider") }, onDivider, trailingIcon = { Text("---", color = MaterialTheme.colorScheme.outline) })
                 if (q.isEmpty() || "today date journal".contains(q, true)) DropdownMenuItem({ Text("Today") }, { onPick("[[${todayKey()}]]", null) })
+                pages.values.filter { it.isTemplate && (q.isEmpty() || it.title.contains(q, true) || "template".contains(q, true)) }
+                    .sortedBy { it.title.lowercase() }
+                    .forEach { t ->
+                        DropdownMenuItem({ Text(t.displayTitle) }, { onTemplate(t) },
+                            leadingIcon = { Text(t.icon ?: "📄") }, trailingIcon = { Text("Template", color = MaterialTheme.colorScheme.outline) })
+                    }
             }
             is Suggest.Link -> {
                 val hits = pages.values.filter { it.deletedAt == null && !it.isFolder && (q.isEmpty() || it.title.contains(q, true) || it.aliases.any { a -> a.contains(q, true) }) }
