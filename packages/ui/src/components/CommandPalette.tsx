@@ -10,7 +10,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const activePages = Object.values(pages).filter((p) => !p.deletedAt);
+  const activePages = Object.values(pages).filter((p) => !p.deletedAt && !p.folder);
 
   // Filter notes
   const matchedPages = activePages.filter((p) => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { BlockEditor } from './components/BlockEditor';
@@ -17,6 +17,8 @@ import { Trash2, Undo } from 'lucide-react';
 import './theme';
 import './styles.css';
 import './components/editor.css';
+import { ContextMenuHost, suppressNativeContextMenu } from './components/ContextMenu';
+import { Route, parseRoute, routePath } from './route';
 
 const navigate = (path: string) => {
   history.pushState(null, '', path);
@@ -47,7 +49,7 @@ const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 const Workspace: React.FC<{ onOpenAdmin: () => void }> = ({ onOpenAdmin }) => {
   const status = useSession((s) => s.status);
   const identity = useSession((s) => s.identity);
-  const { pages, activeId, view, loaded } = useStore((s) => s);
+  const { pages, activeId, view, loaded, databaseTag } = useStore((s) => s);
   const [showInspector, setShowInspector] = useState(true);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
@@ -61,6 +63,64 @@ const Workspace: React.FC<{ onOpenAdmin: () => void }> = ({ onOpenAdmin }) => {
     if (loaded && status === 'ready' && identity) void sync.start(identity);
     else sync.stop();
   }, [loaded, status, identity]);
+
+  // URL <-> store. A deep link to a page this device has not synced yet waits for it (10 s max).
+  const wanted = useRef<Route | null>(parseRoute(location.pathname, location.search));
+  const routed = useRef(false);
+  const lastActive = useRef<string | null>(null);
+  useEffect(() => {
+    const apply = () => {
+      const r = wanted.current;
+      if (!r) return;
+      const s = store.get();
+      if (r.view === 'database') store.setDatabaseTag(r.tag ?? null);
+      else if (!r.pageId) store.setView(r.view);
+      else if (s.pages[r.pageId] && !s.pages[r.pageId].folder) store.open(r.pageId, r.view);
+      else return;
+      wanted.current = null;
+      // The address bar already shows this route; later navigation pushes new history entries.
+      routed.current = true;
+      lastActive.current = store.get().activeId;
+    };
+    if (loaded) apply();
+    const onPop = () => {
+      const r = parseRoute(location.pathname, location.search);
+      // Back/forward to a page that no longer exists: stay put instead of waiting for it.
+      if (r?.pageId && !store.get().pages[r.pageId]) {
+        const s = store.get();
+        history.replaceState(null, '', routePath({ view: s.view, pageId: s.activeId ?? undefined, tag: s.databaseTag }));
+        return;
+      }
+      wanted.current = r;
+      apply();
+    };
+    addEventListener('popstate', onPop);
+    return () => removeEventListener('popstate', onPop);
+  }, [loaded, pages]);
+  useEffect(() => {
+    if (!loaded || !wanted.current) return;
+    const t = setTimeout(() => (wanted.current = null), 10_000);
+    return () => clearTimeout(t);
+  }, [loaded]);
+  useEffect(() => {
+    if (!loaded || wanted.current) return;
+    const path = routePath({ view, pageId: activeId ?? undefined, tag: databaseTag });
+    if (path === location.pathname + location.search) return;
+    // First sync replaces "/" (no extra history entry); later navigation is a real history step,
+    // except when the app moved off a page that disappeared (trashed, revoked, dropped starter page).
+    const prev = lastActive.current;
+    const automatic = !routed.current || (prev !== null && prev !== activeId && (!pages[prev] || !!pages[prev].deletedAt));
+    if (automatic) history.replaceState(null, '', path);
+    else history.pushState(null, '', path);
+    routed.current = true;
+    lastActive.current = activeId;
+  }, [loaded, view, activeId, databaseTag, pages]);
+
+  // The app has its own right-click menus; the browser's is kept only in text fields.
+  useEffect(() => {
+    document.addEventListener('contextmenu', suppressNativeContextMenu);
+    return () => document.removeEventListener('contextmenu', suppressNativeContextMenu);
+  }, []);
 
   // Global keyboard shortcuts (Cmd/Ctrl + K for search)
   useEffect(() => {
@@ -183,6 +243,8 @@ const Workspace: React.FC<{ onOpenAdmin: () => void }> = ({ onOpenAdmin }) => {
           )}
         </div>
       </main>
+
+      <ContextMenuHost />
 
       {/* Quick Switcher / Command Palette Modal */}
       <CommandPalette

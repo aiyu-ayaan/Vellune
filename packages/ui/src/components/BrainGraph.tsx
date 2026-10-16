@@ -26,7 +26,7 @@ export const BrainGraph: React.FC = () => {
   const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  const activePages = Object.values(pages).filter((p) => !p.deletedAt);
+  const activePages = Object.values(pages).filter((p) => !p.deletedAt && !p.folder);
   const index = buildIndex(activePages);
   const graphData = buildGraph(activePages, index, {
     focusId: mode === 'local' && activeId ? activeId : undefined,

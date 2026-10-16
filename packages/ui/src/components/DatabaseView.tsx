@@ -7,7 +7,7 @@ export const DatabaseView: React.FC = () => {
   const { pages, databaseTag } = useStore((s) => s);
   const [layout, setLayout] = useState<'table' | 'kanban'>('table');
 
-  const activePages = Object.values(pages).filter((p) => !p.deletedAt);
+  const activePages = Object.values(pages).filter((p) => !p.deletedAt && !p.folder);
   const index = buildIndex(activePages);
 
   // Filter by tag if selected in sidebar
