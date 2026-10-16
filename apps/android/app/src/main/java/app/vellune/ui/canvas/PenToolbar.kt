@@ -1,4 +1,4 @@
-package app.vellune.ui.note
+package app.vellune.ui.canvas
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.HighlightAlt
+import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,7 +76,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import app.vellune.data.PenTool
+import app.vellune.ink.PenTool
 import app.vellune.ink.Brushes
 import app.vellune.ink.InkMode
 
@@ -105,11 +107,13 @@ private val Eraser: ImageVector by lazy {
 private data class ToolItem(val mode: InkMode, val label: String, val icon: ImageVector)
 
 private val tools = listOf(
+    ToolItem(InkMode.Select, "Select", Icons.Outlined.NearMe),
     ToolItem(InkMode.Draw(PenTool.Pen), "Pen", Icons.Outlined.Draw),
     ToolItem(InkMode.Draw(PenTool.Pencil), "Pencil", Icons.Outlined.Create),
     ToolItem(InkMode.Draw(PenTool.Highlighter), "Highlighter", Icons.Outlined.BorderColor),
     ToolItem(InkMode.Eraser, "Eraser", Eraser),
     ToolItem(InkMode.Lasso, "Lasso select", Icons.Outlined.HighlightAlt),
+    ToolItem(InkMode.Sticky, "Sticky note", Icons.AutoMirrored.Outlined.StickyNote2),
 )
 
 /**
@@ -154,6 +158,7 @@ fun PenToolbar(
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(horizontal = 12.dp),
                     )
+                    ColorButton(Brushes.displayColor(color, isSystemInDarkTheme(), PenTool.Pen) or (0xFF shl 24), paletteOpen, enabled = true, onClick = onPalette)
                     IconButton(onClick = onDuplicate) { Icon(Icons.Outlined.ContentCopy, "Duplicate") }
                     IconButton(onClick = onDeleteSelection) { Icon(Icons.Outlined.Delete, "Delete selection") }
                     IconButton(onClick = onClearSelection) { Icon(Icons.Outlined.Close, "Clear selection") }

@@ -11,6 +11,8 @@ graphicsShapes = "1.0.1"
 ink = "1.0.0"
 motionPrediction = "1.0.0"
 coroutines = "1.10.2"
+okhttp = "4.12.0"
+json = "20250517"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"
 androidxTestRunner = "1.7.0"
@@ -37,6 +39,9 @@ ink-strokes = { group = "androidx.ink", name = "ink-strokes", version.ref = "ink
 
 input-motionprediction = { group = "androidx.input", name = "input-motionprediction", version.ref = "motionPrediction" }
 
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+# org.json for JVM unit tests; Android ships its own.
+org-json = { group = "org.json", name = "json", version.ref = "json" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }

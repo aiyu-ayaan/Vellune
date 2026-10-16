@@ -19,8 +19,10 @@ use yrs::{
 mod jni_api;
 
 // `favorite` is deliberately absent: favorites are per person, not part of the shared page.
-const META_KEYS: [&str; 11] =
-    ["title", "tags", "aliases", "journal", "extraFrontmatter", "createdAt", "updatedAt", "deletedAt", "parentId", "folder", "order"];
+// `mode` ("edgeless") remembers which face a page opens on.
+const META_KEYS: [&str; 12] = [
+    "title", "tags", "aliases", "journal", "extraFrontmatter", "createdAt", "updatedAt", "deletedAt", "parentId", "folder", "order", "mode",
+];
 const BLOCK_KEYS: [&str; 6] = ["kind", "level", "checked", "language", "color", "src"];
 
 pub fn new_doc() -> Doc {
