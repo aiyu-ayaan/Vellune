@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Calendar, Compass, Database, FilePlus, Layout, Search } from 'lucide-react';
+import { Archive, BookOpen, Calendar, Compass, Database, FilePlus, Layout, Search } from 'lucide-react';
+import { download, exportWorkspace } from '../vault';
 import { store, useStore } from '../store';
 import { PageIcon } from './PageIcon';
 
@@ -39,6 +40,15 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       icon: <Calendar size={16} />,
       run: () => {
         store.openToday();
+        onClose();
+      },
+    },
+    {
+      id: 'export-workspace',
+      title: 'Export workspace as Markdown (.zip)',
+      icon: <Archive size={16} />,
+      run: () => {
+        download(exportWorkspace(Object.values(pages)), `vellune-${new Date().toISOString().slice(0, 10)}.zip`);
         onClose();
       },
     },

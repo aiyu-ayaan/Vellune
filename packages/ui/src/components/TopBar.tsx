@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Archive,
   Download,
+  FolderInput,
   FileText,
   Layout,
   Lock,
@@ -11,7 +13,8 @@ import {
   Upload,
 } from 'lucide-react';
 import { store, useStore } from '../store';
-import { markdownToPage, pageToMarkdown } from '../markdown';
+import { pageToMarkdown } from '../markdown';
+import { download, exportWorkspace, importFiles } from '../vault';
 import { useSession } from '../cloud/session';
 import { useSync } from '../cloud/sync';
 import { Avatar, ShareMenu } from './ShareMenu';
@@ -61,6 +64,7 @@ export const TopBar: React.FC<{
   const { pages, activeId, view } = useStore((s) => s);
   const activePage = activeId ? pages[activeId] : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -92,31 +96,18 @@ export const TopBar: React.FC<{
 
   const handleExport = () => {
     if (!activePage) return;
-    const md = pageToMarkdown(activePage);
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(activePage.title || 'untitled').replace(/[^a-z0-9_-]/gi, '_')}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const blob = new Blob([pageToMarkdown(activePage)], { type: 'text/markdown;charset=utf-8' });
+    download(blob, `${(activePage.title || 'untitled').replace(/[^a-z0-9_-]/gi, '_')}.md`);
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        const title = file.name.replace(/\.md$/i, '');
-        const imported = markdownToPage(title, content);
-        store.addPages([imported]);
-        store.open(imported.id, 'page');
-      }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const imported = await importFiles([...(input.files ?? [])]);
+    input.value = '';
+    if (!imported.length) return;
+    store.addPages(imported);
+    const first = imported.find((p) => !p.folder);
+    if (first) store.open(first.id, 'page');
   };
 
   return (
@@ -126,6 +117,15 @@ export const TopBar: React.FC<{
         ref={fileInputRef}
         onChange={handleImportFile}
         accept=".md,.markdown,.txt"
+        multiple
+        style={{ display: 'none' }}
+      />
+      <input
+        type="file"
+        ref={folderInputRef}
+        onChange={handleImportFile}
+        // Non-standard but supported by every engine Vellune runs on (Chromium, WebKit, Gecko).
+        {...{ webkitdirectory: '' }}
         style={{ display: 'none' }}
       />
 
@@ -194,10 +194,23 @@ export const TopBar: React.FC<{
                       <History size={15} aria-hidden="true" /> Version history
                     </button>
                     <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); handleExport(); }}>
-                      <Download size={15} aria-hidden="true" /> Export Markdown
+                      <Download size={15} aria-hidden="true" /> Export page as Markdown
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        download(exportWorkspace(Object.values(store.get().pages)), `vellune-${new Date().toISOString().slice(0, 10)}.zip`);
+                      }}
+                    >
+                      <Archive size={15} aria-hidden="true" /> Export workspace (.zip)
                     </button>
                     <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); fileInputRef.current?.click(); }}>
-                      <Upload size={15} aria-hidden="true" /> Import Markdown file
+                      <Upload size={15} aria-hidden="true" /> Import Markdown files
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); folderInputRef.current?.click(); }}>
+                      <FolderInput size={15} aria-hidden="true" /> Import folder (Obsidian vault)
                     </button>
                     <button type="button" role="menuitem" className="danger" onClick={() => { setMoreOpen(false); store.trash(activePage.id); }}>
                       <Trash2 size={15} aria-hidden="true" /> Move to trash
