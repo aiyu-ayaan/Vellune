@@ -466,3 +466,13 @@
 .file-meta { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .file-name { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-sub { font-size: 12px; color: var(--text-muted); }
+
+/* ---------- page embeds ---------- */
+.page-embed { border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px 10px; margin: 2px 0; background: var(--bg-primary); }
+.page-embed.missing { border-style: dashed; }
+.page-embed-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; }
+.page-embed-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-embed-body { font-size: 14px; color: var(--text-secondary, var(--text-primary)); max-height: 360px; overflow: hidden; }
+.page-embed-body h2, .page-embed-body h3, .page-embed-body h4 { margin: 8px 0 4px; }
+.page-embed-body p, .page-embed-body .block { margin: 4px 0; }
+.page-embed-more { font-size: 12px; color: var(--text-muted); margin-top: 4px; }

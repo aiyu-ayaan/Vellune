@@ -29,6 +29,7 @@ import {
   Minus,
   Plus,
   Quote,
+  Layers,
   MessageSquare,
   Paperclip,
   LayoutTemplate,
@@ -48,6 +49,7 @@ import { BlobImage } from './BlobImage';
 import { IconPicker } from './PageIcon';
 import { TableBlock } from './TableBlock';
 import { FileBlock } from './FileBlock';
+import { PageEmbed, embedTarget } from './PageEmbed';
 import { PropsEditor } from './PropsEditor';
 import { CommentBadge, CommentThread, threadOf } from './Comments';
 import { textValues } from '../props';
@@ -720,6 +722,20 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         },
       },
       {
+        id: 'embed',
+        label: 'Embed page',
+        hint: '![[',
+        group: R,
+        icon: Layers,
+        keywords: 'embed transclude include synced page doc card',
+        run: (block, ctx) => {
+          const text = `${ctx.text.slice(0, ctx.at)}![[${ctx.text.slice(ctx.at)}`;
+          patchBlock(block.id, (b) => ({ ...b, text }));
+          focusBlock(block.id, ctx.at + 3);
+          setMenu({ kind: 'link', blockId: block.id, start: ctx.at + 1, query: '', index: 0 });
+        },
+      },
+      {
         id: 'subpage',
         label: 'New linked page',
         hint: 'Create and link',
@@ -1292,6 +1308,11 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       );
     }
     const lonelyEmpty = page.blocks.length === 1 && block.text === '';
+    const embed = block.kind === 'paragraph' ? embedTarget(block.text) : null;
+    if (embed) {
+      const target = index.resolve(embed);
+      return <PageEmbed target={target?.id === page.id ? undefined : target} name={embed} onEdit={readOnly ? undefined : () => focusBlock(block.id)} />;
+    }
     if (isCode) {
       return (
         <div className="code-surface">
