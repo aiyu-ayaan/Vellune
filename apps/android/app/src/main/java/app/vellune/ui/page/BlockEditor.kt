@@ -58,6 +58,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardHide
+import androidx.compose.material.icons.automirrored.outlined.Comment
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.automirrored.outlined.FormatIndentDecrease
@@ -205,6 +206,7 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
     val titleFocus = remember { FocusRequester() }
     // Folded toggles are a view choice on this screen, not part of the shared page.
     var folded by remember(page.id) { mutableStateOf(emptySet<String>()) }
+    var commentFor by remember(page.id) { mutableStateOf<String?>(null) }
     val list = rememberLazyListState()
     val blocks = page.blocks
 
@@ -398,6 +400,9 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                     BlockRow(
                         b = b, number = number, field = fields[b.id] ?: TextFieldValue(ZWSP + b.text),
                         folded = b.id in folded, hasKids = subtreeEnd(blocks, i) > i + 1,
+                        comments = page.comments.firstOrNull { it.blockId == b.id && it.parentId == null && it.resolved != true }
+                            ?.let { page.comments.count { c -> c.blockId == b.id } } ?: 0,
+                        onComments = { commentFor = b.id },
                         onFold = { folded = if (b.id in folded) folded - b.id else folded + b.id },
                         focused = focused == b.id, inline = inline, requester = requester(b.id), pageId = page.id, app = app,
                         onFocus = { has -> if (has) focused = b.id else if (focused == b.id) { focused = null; suggest = null } },
@@ -496,6 +501,7 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                         focusAt(b.id, (fields[b.id]?.selection?.end ?: 1) - 1)
                     },
                     onIndent = { d -> indentBy(b, d); focusAt(b.id, (fields[b.id]?.selection?.end ?: 1) - 1) },
+                    onComment = { commentFor = b.id },
                     onDelete = {
                         val i = blocks.indexOfFirst { it.id == b.id }
                         edit { bs -> bs.filterNot { it.id == b.id } }
@@ -504,6 +510,14 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                     onDone = { focusManager.clearFocus() },
                 )
             }
+        }
+        commentFor?.let { id ->
+            val me = app.session.state.value.user
+            CommentSheet(
+                page.comments, id, meId = me?.id ?: "local", meName = me?.name?.ifBlank { null } ?: me?.email ?: "You", readOnly = false,
+                onChange = { cs -> ws.updatePage(page.id) { it.copy(comments = cs) } },
+                onDismiss = { commentFor = null },
+            )
         }
     }
 }
@@ -516,6 +530,8 @@ private fun BlockRow(
     folded: Boolean,
     hasKids: Boolean,
     onFold: () -> Unit,
+    comments: Int,
+    onComments: () -> Unit,
     focused: Boolean,
     inline: InlineColors,
     requester: FocusRequester,
@@ -627,6 +643,10 @@ private fun BlockRow(
                 },
             )
         }
+        if (comments > 0) Text(
+            "💬 $comments", style = MaterialTheme.typography.labelMedium, color = colors.primary,
+            modifier = Modifier.padding(start = 6.dp, top = 4.dp).clip(CircleShape).clickable(onClick = onComments).padding(horizontal = 6.dp, vertical = 2.dp),
+        )
     }
 }
 
@@ -699,6 +719,7 @@ private fun BlockToolbar(
     onImage: () -> Unit,
     onMove: (Int) -> Unit,
     onIndent: (Int) -> Unit,
+    onComment: () -> Unit,
     onDelete: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -722,6 +743,7 @@ private fun BlockToolbar(
             IconButton(onClick = { onTurn(TURN_INTO[9]) }) { Icon(Icons.Outlined.Lightbulb, "Callout") }
             IconButton(onClick = { onTurn(TURN_INTO[10]) }) { Icon(Icons.Outlined.Code, "Code block") }
             IconButton(onClick = onLink) { Icon(Icons.Outlined.Link, "Link to page") }
+            IconButton(onClick = onComment) { Icon(Icons.AutoMirrored.Outlined.Comment, "Comment") }
             IconButton(onClick = onImage) { Icon(Icons.Outlined.Image, "Image") }
             VerticalDivider(Modifier.height(24.dp).padding(horizontal = 4.dp))
             IconButton(onClick = { onIndent(-1) }, enabled = b.depth > 0) { Icon(Icons.AutoMirrored.Outlined.FormatIndentDecrease, "Outdent") }

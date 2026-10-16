@@ -171,6 +171,7 @@ pub fn apply_page(doc: &Doc, page: &Value) -> Vec<u8> {
     let items = doc.get_or_insert_map("canvasItems");
     let strokes = doc.get_or_insert_map("strokes");
     let props = doc.get_or_insert_map("props");
+    let comments = doc.get_or_insert_map("comments");
     let mut txn = doc.transact_mut();
 
     if let Some(id) = page.get("id") {
@@ -269,6 +270,10 @@ pub fn apply_page(doc: &Doc, page: &Value) -> Vec<u8> {
     let list = |k: &str| canvas.and_then(|c| c.get(k)).and_then(Value::as_array).cloned().unwrap_or_default();
     sync_keyed(&mut txn, &items, &list("items"));
     sync_keyed(&mut txn, &strokes, &list("strokes"));
+    // Block comments (web: cloud/ydoc.ts). A snapshot without the key leaves them alone.
+    if let Some(cs) = page.get("comments").and_then(Value::as_array) {
+        sync_keyed(&mut txn, &comments, cs);
+    }
 
     let u = txn.encode_update_v1();
     // An update with no structs and no deletions encodes as two zero varints.
@@ -284,6 +289,7 @@ pub fn doc_to_page(doc: &Doc) -> Option<Value> {
     let items = doc.get_or_insert_map("canvasItems");
     let strokes = doc.get_or_insert_map("strokes");
     let props = doc.get_or_insert_map("props");
+    let comments = doc.get_or_insert_map("comments");
     let txn = doc.transact();
     let id = meta.get(&txn, "id").map(|o| out_json(&txn, &o)).filter(Value::is_string)?;
 
@@ -330,6 +336,11 @@ pub fn doc_to_page(doc: &Doc) -> Option<Value> {
     }
 
     let values = |m: &MapRef| -> Vec<Value> { m.iter(&txn).map(|(_, o)| out_json(&txn, &o)).collect() };
+    let mut cs = values(&comments);
+    cs.sort_by(|a, b| a["createdAt"].as_f64().partial_cmp(&b["createdAt"].as_f64()).unwrap_or(std::cmp::Ordering::Equal));
+    if !cs.is_empty() {
+        page.insert("comments".into(), Value::Array(cs));
+    }
     let mut canvas = Map::new();
     canvas.insert("items".into(), Value::Array(values(&items)));
     canvas.insert("strokes".into(), Value::Array(values(&strokes)));
@@ -372,6 +383,18 @@ mod tests {
         let d = new_doc();
         apply_update(&d, &encode_state(src)).unwrap();
         d
+    }
+
+    #[test]
+    fn comments_round_trip_and_survive_snapshots_without_them() {
+        let d = new_doc();
+        let mut p = page(json!([{ "id": "b1", "text": "x" }]));
+        p["comments"] = json!([{ "id": "c1", "blockId": "b1", "authorId": "u", "authorName": "U", "text": "hi", "createdAt": 1 }]);
+        apply_page(&d, &p);
+        assert_eq!(doc_to_page(&d).unwrap()["comments"][0]["text"], "hi");
+        // An older client's snapshot has no "comments" key: they stay.
+        apply_page(&d, &page(json!([{ "id": "b1", "text": "y" }])));
+        assert_eq!(doc_to_page(&d).unwrap()["comments"].as_array().unwrap().len(), 1);
     }
 
     #[test]

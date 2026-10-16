@@ -56,6 +56,30 @@ data class Stroke(
     override fun hashCode() = id.hashCode()
 }
 
+/** Block comment, shared with the web (packages/ui/src/model.ts PageComment). */
+data class Comment(
+    val id: String = newId(),
+    val blockId: String,
+    val parentId: String? = null,
+    val authorId: String,
+    val authorName: String,
+    val text: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val resolved: Boolean? = null,
+)
+
+fun commentFromJson(o: JSONObject) = Comment(
+    id = o.optStr("id") ?: newId(), blockId = o.optStr("blockId").orEmpty(), parentId = o.optStr("parentId"),
+    authorId = o.optStr("authorId").orEmpty(), authorName = o.optStr("authorName").orEmpty(), text = o.optStr("text").orEmpty(),
+    createdAt = o.optLng("createdAt") ?: 0L, resolved = o.optBool("resolved"),
+)
+
+fun Comment.toJson() = JSONObject().apply {
+    put("id", id); put("blockId", blockId); parentId?.let { put("parentId", it) }
+    put("authorId", authorId); put("authorName", authorName); put("text", text); put("createdAt", createdAt)
+    resolved?.let { put("resolved", it) }
+}
+
 data class Canvas(val items: List<CanvasItem> = emptyList(), val strokes: List<Stroke> = emptyList())
 
 data class Page(
@@ -73,6 +97,7 @@ data class Page(
     val extraFrontmatter: String? = null,
     /** Typed properties (String, Double or Boolean values), merged per key; shared with the web. */
     val props: Map<String, Any> = emptyMap(),
+    val comments: List<Comment> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,
     val deletedAt: Long? = null,
@@ -180,6 +205,7 @@ fun pageFromJson(o: JSONObject, favorite: Boolean = false): Page {
                 }
             }.toMap()
         }.orEmpty(),
+        comments = o.optJSONArray("comments")?.let { a -> List(a.length()) { commentFromJson(a.getJSONObject(it)) } }.orEmpty(),
         createdAt = o.optLng("createdAt") ?: System.currentTimeMillis(),
         updatedAt = o.optLng("updatedAt") ?: System.currentTimeMillis(),
         deletedAt = o.optLng("deletedAt"),
@@ -205,6 +231,7 @@ fun Page.toJson() = JSONObject().apply {
     if (props.isNotEmpty()) put("props", JSONObject().also { o ->
         props.forEach { (k, v) -> o.put(k, if (v is Double && v % 1.0 == 0.0) v.toLong() else v) }
     })
+    put("comments", JSONArray().also { a -> comments.forEach { a.put(it.toJson()) } })
     put("createdAt", createdAt); put("updatedAt", updatedAt)
     deletedAt?.let { put("deletedAt", it) }; parentId?.let { put("parentId", it) }
     folder?.let { put("folder", it) }; order?.let { put("order", if (it % 1.0 == 0.0) it.toLong() else it) }
