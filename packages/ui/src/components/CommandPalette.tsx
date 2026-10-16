@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { searchPages } from '../search';
 import { Archive, BookOpen, Calendar, Compass, Database, FilePlus, Layout, Search } from 'lucide-react';
 import { download, exportWorkspace } from '../vault';
 import { store, useStore } from '../store';
@@ -12,17 +13,8 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const activePages = Object.values(pages).filter((p) => !p.deletedAt && !p.folder);
-
-  // Filter notes
-  const matchedPages = activePages.filter((p) => {
-    const q = query.toLowerCase();
-    return (
-      p.title.toLowerCase().includes(q) ||
-      p.tags.some((t) => t.toLowerCase().includes(q)) ||
-      (p.aliases && p.aliases.some((a) => a.toLowerCase().includes(q)))
-    );
-  });
+  const hits = useMemo(() => searchPages(Object.values(pages), query), [pages, query]);
+  const matchedPages = hits.map((h) => h.page);
 
   const actions = [
     {
@@ -127,7 +119,8 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
         </div>
 
         <div className="modal-list">
-          {matchedPages.map((p, idx) => (
+          {!query.trim() && hits.length > 0 && <div className="popover-label">Recent</div>}
+          {hits.map(({ page: p, snippet }, idx) => (
             <div
               key={p.id}
               className={`modal-item ${selectedIndex === idx ? 'active' : ''}`}
@@ -137,7 +130,16 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
               }}
             >
               <PageIcon page={p} fallback={BookOpen} />
-              <span>{p.title || 'Untitled'}</span>
+              <span className="modal-item-text">
+                <span>{p.title || 'Untitled'}</span>
+                {snippet && (
+                  <span className="modal-snippet">
+                    {snippet.before}
+                    <mark>{snippet.match}</mark>
+                    {snippet.after}
+                  </span>
+                )}
+              </span>
               {p.tags.length > 0 && (
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
                   {p.tags.map((t) => `#${t}`).join(' ')}
