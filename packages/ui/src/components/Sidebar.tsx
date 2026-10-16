@@ -520,6 +520,15 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void; onOpenAdmin: () => vo
 
   // Extract all unique tags
   const tags = Array.from(new Set(activePages.flatMap((p) => p.tags))).sort();
+  const [newTag, setNewTag] = React.useState(false);
+  // Tags are derived from pages, so a new tag is created by tagging a fresh doc with it.
+  const createTag = (raw: string) => {
+    setNewTag(false);
+    const t = raw.trim().replace(/^#+/, '').replace(/\s+/g, '-');
+    if (!t) return;
+    if (!tags.includes(t)) store.createPage('Untitled', { tags: [t] });
+    store.setDatabaseTag(t);
+  };
 
   const userName = useSession((st) => st.user?.name);
   const docActive = (id: string) => activeId === id && view !== 'graph' && view !== 'database' && view !== 'trash';
@@ -640,8 +649,33 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void; onOpenAdmin: () => vo
           />
         </Section>
 
-        {tags.length > 0 && (
-          <Section label="Tags">
+        {(
+          <Section
+            label="Tags"
+            action={
+              <button type="button" className="btn-icon section-add" title="New tag" aria-label="New tag" onClick={() => setNewTag(true)}>
+                <Plus size={14} />
+              </button>
+            }
+          >
+            {newTag && (
+              <div className="page-list-item">
+                <Hash size={16} aria-hidden="true" />
+                <input
+                  className="tree-rename"
+                  autoFocus
+                  placeholder="New tag"
+                  aria-label="New tag name"
+                  onBlur={(e) => createTag(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== 'Escape') return;
+                    const v = e.key === 'Enter' ? e.currentTarget.value : '';
+                    e.currentTarget.value = ''; // blur fires on unmount; keep it a no-op
+                    createTag(v);
+                  }}
+                />
+              </div>
+            )}
             {tags.map((tag) => (
               <button
                 type="button"
