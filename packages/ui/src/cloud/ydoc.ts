@@ -3,7 +3,7 @@
 // per field, and per character instead of last-writer-wins on the whole page.
 
 import * as Y from 'yjs';
-import { Block, CanvasItem, Page, PropValue, Stroke } from '../model';
+import { Block, CanvasItem, Page, PageComment, PropValue, Stroke } from '../model';
 
 export const LOCAL = Symbol('local');
 
@@ -85,6 +85,7 @@ export function pageToDoc(doc: Y.Doc, page: Page) {
     for (const [k, v] of Object.entries(wantProps)) if (props.get(k) !== v) props.set(k, v);
 
     syncKeyed(doc.getMap<CanvasItem>('canvasItems'), page.canvas.items);
+    syncKeyed(doc.getMap<PageComment>('comments'), page.comments ?? []);
     syncKeyed(doc.getMap<Stroke>('strokes'), page.canvas.strokes);
   }, LOCAL);
 }
@@ -121,6 +122,7 @@ export function docToPage(doc: Y.Doc): Page | null {
     parentId: m.parentId,
     folder: m.folder,
     order: m.order,
+    comments: doc.getMap<PageComment>('comments').size ? [...doc.getMap<PageComment>('comments').values()].sort((a, b) => a.createdAt - b.createdAt) : undefined,
     props: doc.getMap<PropValue>('props').size ? Object.fromEntries(doc.getMap<PropValue>('props').entries()) : undefined,
     canvas: {
       items: [...doc.getMap<CanvasItem>('canvasItems').values()],

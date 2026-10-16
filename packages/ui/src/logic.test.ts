@@ -267,3 +267,21 @@ describe('page properties', () => {
     expect(docToPage(d1)?.props).toEqual({ a: 2, b: 'x' });
   });
 });
+
+describe('comments', () => {
+  it('sync through the page document and merge between people', async () => {
+    const Y = await import('yjs');
+    const { pageToDoc, docToPage } = await import('./cloud/ydoc');
+    const page = newPage('C', { blocks: [newBlock('paragraph', 'x')] });
+    const c = (id: string, at: number) => ({ id, blockId: page.blocks[0].id, authorId: 'u', authorName: 'U', text: id, createdAt: at });
+    const a = new Y.Doc();
+    pageToDoc(a, { ...page, comments: [c('first', 1)] });
+    const b = new Y.Doc();
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+    pageToDoc(a, { ...page, comments: [c('first', 1), c('reply-a', 2)] });
+    pageToDoc(b, { ...page, comments: [c('first', 1), c('reply-b', 3)] });
+    Y.applyUpdate(a, Y.encodeStateAsUpdate(b));
+    expect(docToPage(a)?.comments?.map((x) => x.id)).toEqual(['first', 'reply-a', 'reply-b']);
+    expect(pageToMarkdown(docToPage(a)!)).not.toContain('reply');
+  });
+});

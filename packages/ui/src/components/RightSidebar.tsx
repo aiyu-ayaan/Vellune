@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Info, Link2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Info, Link2, MessageSquare } from 'lucide-react';
 import { Page } from '../model';
 import { buildIndex, linkMention, unlinkedMentions } from '../links';
 import { store, useStore } from '../store';
@@ -12,6 +12,7 @@ export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
   const backlinks = index.backlinks.get(page.id) ?? [];
   const outgoingLinks = Array.from(index.outgoing.get(page.id)?.resolved ?? []);
   const roles = useSync((s) => s.roles);
+  const openThreads = (page.comments ?? []).filter((c) => !c.parentId && !c.resolved);
   const unlinked = useMemo(() => unlinkedMentions(Object.values(pages), page), [pages, page]);
   const link = (m: (typeof unlinked)[number]) =>
     store.updatePage(m.sourceId, (p) => ({
@@ -59,6 +60,36 @@ export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
           })
         )}
       </div>
+
+      {/* Open comment threads on this page */}
+      {openThreads.length > 0 && (
+        <div className="panel-section">
+          <div className="panel-header">
+            <MessageSquare size={14} />
+            <span>Comments ({openThreads.length})</span>
+          </div>
+          {openThreads.map((c) => {
+            const replies = (page.comments ?? []).filter((r) => r.parentId === c.id).length;
+            const block = page.blocks.find((b) => b.id === c.blockId);
+            return (
+              <div
+                key={c.id}
+                className="backlink-card"
+                onClick={() => {
+                  const el = document.getElementById(`b-${c.blockId}`);
+                  el?.scrollIntoView({ block: 'center' });
+                  el?.classList.add('flash');
+                  setTimeout(() => el?.classList.remove('flash'), 1600);
+                }}
+              >
+                <div className="backlink-title">{c.authorName}</div>
+                <div className="backlink-context">{c.text}</div>
+                <div className="backlink-context">{block ? `On: ${block.text.slice(0, 60) || block.kind}` : 'On a deleted block'}{replies ? ` · ${replies} repl${replies === 1 ? 'y' : 'ies'}` : ''}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Unlinked mentions: the title in plain text elsewhere, one click from becoming a link. */}
       {unlinked.length > 0 && (

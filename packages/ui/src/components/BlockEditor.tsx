@@ -29,6 +29,7 @@ import {
   Minus,
   Plus,
   Quote,
+  MessageSquare,
   LayoutTemplate,
   Table2,
   Smile,
@@ -46,6 +47,7 @@ import { BlobImage } from './BlobImage';
 import { IconPicker } from './PageIcon';
 import { TableBlock } from './TableBlock';
 import { PropsEditor } from './PropsEditor';
+import { CommentBadge, CommentThread, threadOf } from './Comments';
 import { textValues } from '../props';
 import { emptyTable } from '../table';
 import { instantiate, isTemplate } from '../templates';
@@ -456,6 +458,8 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   });
   const [copied, setCopied] = useState<string | null>(null);
   const [iconOpen, setIconOpen] = useState(false);
+  const [commentOn, setCommentOn] = useState<string | null>(null);
+  const closeComments = useCallback(() => setCommentOn(null), []);
   /** Formatting bar over a text selection in the block being edited. */
   const [selBar, setSelBar] = useState<{ blockId: string; x: number; y: number } | null>(null);
   // Folded toggles are a per-device view choice, like a collapsed sidebar folder; never synced.
@@ -1546,6 +1550,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                               },
                             },
                             { label: 'Turn into / color…', icon: Palette, onSelect: () => setMenuBlockId(block.id) },
+                            { label: 'Comment', icon: MessageSquare, onSelect: () => setCommentOn(block.id) },
                             { label: 'Duplicate', icon: Copy, onSelect: () => insertAfter(block.id, { ...block, id: newBlock().id }) },
                             { label: 'Move up', icon: ArrowUp, disabled: !at(-1), onSelect: () => moveBlock(block.id, at(-1)!.id, false) },
                             { label: 'Move down', icon: ArrowDown, disabled: !at(1), onSelect: () => moveBlock(block.id, at(1)!.id, true) },
@@ -1657,6 +1662,11 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                         </button>
                       </div>
                     )}
+                    {(() => {
+                      const { root, all } = threadOf(page, block.id);
+                      return root && !root.resolved && commentOn !== block.id ? <CommentBadge count={all.length} onClick={() => setCommentOn(block.id)} /> : null;
+                    })()}
+                    {commentOn === block.id && <CommentThread page={page} blockId={block.id} readOnly={readOnly} onClose={closeComments} />}
                     {selBar?.blockId === block.id && active === block.id && (
                       <div
                         className="format-bar"

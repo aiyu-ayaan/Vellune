@@ -126,7 +126,8 @@
 ### Milestone 4: Infinite Canvas & Whiteboard MVP
 - [x] Canvas rendering surface with pan and cursor-anchored zoom (Ctrl+wheel, trackpad pinch) in React.
 - [x] Sticky notes, embedded page cards, the page's note card; pen, highlighter, shapes (line, arrow, rectangle, ellipse; same stroke geometry as Android), eraser, undo/redo, delete selected.
-- [ ] Text blocks and connectors on the canvas; multi-select and grouping.
+- [x] Text labels on the canvas; sticky colors.
+- [ ] Connectors that follow items; multi-select and grouping.
 - [ ] Spatial bounding box queries (`BoundingBox::intersects`) for virtualized viewport rendering.
 
 ---
@@ -181,8 +182,9 @@ Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). It
 - [x] **Slash menu and inline toolbar:** `/` block insertion, formatting bar on selection.
 - [ ] `@` mentions for pages and dates.
 - [ ] **Linked and synced docs:** inline doc links, embedded linked-doc cards, synced (live-transcluded) blocks.
-- [ ] **Databases:** table and kanban views, typed properties (text, number, select, multi-select, date, checkbox, link), filters, sorts, grouping.
-- [ ] **Doc properties:** typed page metadata panel, mapped to frontmatter on export.
+- [x] **Databases:** typed page properties (text, number, checkbox, date; text acts as select), sortable/filterable table, board grouped by tag or property with drag (long-press on Android) — ADR 0004.
+- [ ] Multi-select and relation properties, saved views.
+- [x] **Doc properties:** typed properties in page Info (web + Android), frontmatter round trip.
 - [ ] **Organization:** tags, collections (saved filters), favorites, folders, trash with restore.
 - [ ] **Journals:** daily notes with calendar navigation (shared with Obsidian daily notes).
 - [x] **Templates:** any `#template` page; `/` inserts it, Ctrl/Cmd+K creates a page from it; `{{date}}`, `{{time}}`, `{{title}}` (web + Android).
@@ -191,10 +193,12 @@ Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). It
 - [ ] **Outline panel** and table-of-contents navigation.
 - [ ] **Version history:** browse and restore past snapshots per doc.
 - [x] **Sharing:** public read-only links, invite members, per-doc permissions (E2E encrypted).
-- [ ] **Comments:** inline and block comment threads with resolve.
+- [x] **Comments (web):** block comment threads with replies, resolve/reopen, badge on the block, open threads in the inspector; E2E-encrypted inside the page document.
+- [ ] Comments on Android, inline (text-range) comments, notifications.
 - [x] **Import:** several Markdown files or a whole folder (Obsidian vault); subfolders become sidebar folders.
 - [ ] **Import (rest):** Notion export, HTML, AFFiNE snapshot (where licensing and formats allow).
 - [x] **Export:** page Markdown; whole workspace as a ZIP of Markdown laid out like the sidebar.
-- [ ] **Export (rest):** HTML, PDF, PNG (edgeless), attachments inside the ZIP.
+- [x] Print / save as PDF with a print stylesheet.
+- [ ] **Export (rest):** HTML, PNG (edgeless), attachments inside the ZIP.
 - [x] **Quick search** (Cmd/Ctrl + K): full text with snippets, commands, recent pages.
 - [ ] **Optional AI assistant:** summarize, rewrite, generate mind map; off by default, never required for core editing.

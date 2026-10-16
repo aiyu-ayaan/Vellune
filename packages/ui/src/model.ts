@@ -19,6 +19,19 @@ export interface Block {
   indent?: number;
 }
 
+/** A comment on a block; replies point at the thread's first comment through `parentId`. */
+export interface PageComment {
+  id: string;
+  blockId: string;
+  parentId?: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  createdAt: number;
+  /** Set on a thread's first comment when the thread is resolved. */
+  resolved?: boolean;
+}
+
 export type PropValue = string | number | boolean;
 export type PropKind = 'text' | 'number' | 'checkbox' | 'date';
 
@@ -66,6 +79,8 @@ export interface Page {
    * The kind follows the value: boolean = checkbox, number, YYYY-MM-DD = date, other string = text.
    */
   props?: Record<string, PropValue>;
+  /** Block comments, synced and encrypted with the page; never exported to Markdown. */
+  comments?: PageComment[];
   /** Imported frontmatter minus title/tags/aliases/props, re-emitted on export. */
   extraFrontmatter?: string;
   createdAt: number;
