@@ -311,7 +311,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
         <button
           className={`canvas-tool-btn ${tool === 'select' ? 'active' : ''}`}
           onClick={() => setTool('select')}
-          title="Select & Move Tool"
+          title="Select & Move Tool" aria-label="Select & Move Tool"
         >
           <MousePointer size={16} />
           <span>Select</span>
@@ -319,7 +319,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
         <button
           className={`canvas-tool-btn ${tool === 'sticky' ? 'active' : ''}`}
           onClick={() => setTool('sticky')}
-          title="Add Sticky Note"
+          title="Add Sticky Note" aria-label="Add Sticky Note"
         >
           <StickyNote size={16} />
           <span>Sticky</span>
@@ -327,7 +327,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
         <button
           className={`canvas-tool-btn ${tool === 'pen' ? 'active' : ''}`}
           onClick={() => setTool('pen')}
-          title="Freehand Pen Tool (Vector inking)"
+          title="Freehand Pen Tool (Vector inking)" aria-label="Freehand Pen Tool (Vector inking)"
         >
           <PenTool size={16} />
           <span>Pen</span>
@@ -335,10 +335,10 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
 
         <div style={{ width: 1, height: 20, background: 'var(--border-color)', margin: '0 4px' }} />
 
-        <button className="canvas-tool-btn" onClick={() => setZoom((z) => Math.min(z * 1.2, 3))} title="Zoom In">
+        <button className="canvas-tool-btn" onClick={() => setZoom((z) => Math.min(z * 1.2, 3))} title="Zoom In" aria-label="Zoom In">
           <ZoomIn size={16} />
         </button>
-        <button className="canvas-tool-btn" onClick={() => setZoom((z) => Math.max(z / 1.2, 0.25))} title="Zoom Out">
+        <button className="canvas-tool-btn" onClick={() => setZoom((z) => Math.max(z / 1.2, 0.25))} title="Zoom Out" aria-label="Zoom Out">
           <ZoomOut size={16} />
         </button>
         <button
@@ -347,7 +347,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
             setZoom(1);
             setPan({ x: 100, y: 100 });
           }}
-          title="Reset Viewport"
+          title="Reset Viewport" aria-label="Reset Viewport"
         >
           <RotateCcw size={16} />
           <span>{Math.round(zoom * 100)}%</span>

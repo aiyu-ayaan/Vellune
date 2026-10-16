@@ -12,9 +12,12 @@ import {
   Trash2,
 } from 'lucide-react';
 import { store, useStore } from '../store';
+import { getTheme, setTheme, Theme } from '../theme';
+import { Account } from './Account';
 
-export const Sidebar: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }) => {
+export const Sidebar: React.FC<{ onOpenSearch: () => void; onOpenAdmin: () => void }> = ({ onOpenSearch, onOpenAdmin }) => {
   const { pages, activeId, view, databaseTag } = useStore((s) => s);
+  const [theme, setThemeState] = React.useState<Theme>(getTheme());
 
   const activePages = Object.values(pages).filter((p) => !p.deletedAt);
   const favoritePages = activePages.filter((p) => p.favorite);
@@ -28,15 +31,16 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="brand">
-          <Moon className="brand-icon" size={20} />
+          <Moon className="brand-icon" size={18} aria-hidden="true" />
           <span>Vellune</span>
         </div>
         <button
           className="btn-icon"
           title="New Note"
+          aria-label="New note"
           onClick={() => store.createPage('Untitled')}
         >
-          <FilePlus size={18} />
+          <FilePlus size={16} />
         </button>
       </div>
 
@@ -44,7 +48,7 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }
         <button className="nav-item" onClick={onOpenSearch}>
           <Search size={16} />
           <span>Quick Switcher</span>
-          <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>⌘K</span>
+          <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>⌘K</span>
         </button>
         <button
           className={`nav-item ${view === 'page' && pages[activeId ?? '']?.journal ? 'active' : ''}`}
@@ -138,9 +142,24 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void }> = ({ onOpenSearch }
         )}
       </div>
 
+      <Account onOpenAdmin={onOpenAdmin} />
       <div className="sidebar-footer">
-        <span>Local-first workspace</span>
-        <span style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>v0.1.0</span>
+        <div className="theme-toggle" role="group" aria-label="Theme">
+          {(['light', 'dark', 'system'] as Theme[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={theme === t}
+              onClick={() => {
+                setTheme(t);
+                setThemeState(t);
+              }}
+            >
+              {t === 'light' ? 'Light' : t === 'dark' ? 'Dark' : 'System'}
+            </button>
+          ))}
+        </div>
+        <span>v0.1.0</span>
       </div>
     </aside>
   );

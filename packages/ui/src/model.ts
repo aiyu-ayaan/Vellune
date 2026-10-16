@@ -3,6 +3,9 @@
 
 export type BlockKind = 'paragraph' | 'heading' | 'todo' | 'bullet' | 'quote' | 'code' | 'divider';
 
+export type NotionTextColor = 'gray' | 'brown' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'red';
+export type NotionColor = 'default' | NotionTextColor | `${NotionTextColor}_background`;
+
 export interface Block {
   id: string;
   kind: BlockKind;
@@ -10,6 +13,7 @@ export interface Block {
   level?: number; // heading 1-6
   checked?: boolean; // todo
   language?: string; // code
+  color?: NotionColor; // UI-only; not exported to markdown
 }
 
 export type CanvasItemType = 'note' | 'sticky' | 'embed';

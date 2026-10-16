@@ -23,7 +23,7 @@ export const DatabaseView: React.FC = () => {
     <div className="database-container">
       <div className="database-header">
         <div>
-          <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.5rem', fontWeight: 700 }}>
+          <h2 style={{ margin: '0 0 4px 0', fontSize: '30px', fontWeight: 700, lineHeight: 1.2 }}>
             {databaseTag ? `#${databaseTag} Collection` : 'All Pages Database'}
           </h2>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -50,8 +50,7 @@ export const DatabaseView: React.FC = () => {
           </div>
 
           <button
-            className="btn-icon"
-            style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.4rem 0.8rem', display: 'flex', gap: '0.4rem', fontSize: '0.85rem' }}
+            className="db-btn"
             onClick={() => store.createPage('New Page', databaseTag ? { tags: [databaseTag] } : {})}
           >
             <Plus size={16} />
@@ -61,7 +60,7 @@ export const DatabaseView: React.FC = () => {
       </div>
 
       {layout === 'table' ? (
-        <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'var(--bg-primary)' }}>
+        <div className="db-wrap">
           <table className="db-table">
             <thead>
               <tr>
@@ -79,7 +78,7 @@ export const DatabaseView: React.FC = () => {
                     <td>
                       <span
                         onClick={() => store.open(p.id, 'page')}
-                        style={{ fontWeight: 600, color: 'var(--accent)', cursor: 'pointer' }}
+                        style={{ fontWeight: 500, color: 'var(--text-primary)', cursor: 'pointer' }}
                       >
                         {p.title || 'Untitled'}
                       </span>

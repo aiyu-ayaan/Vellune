@@ -27,7 +27,7 @@ export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
           <span>Backlinks ({backlinks.length})</span>
         </div>
         {backlinks.length === 0 ? (
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '0 8px' }}>
             No incoming backlinks yet.
           </div>
         ) : (
@@ -59,7 +59,7 @@ export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
           <span>Outgoing Links ({outgoingLinks.length})</span>
         </div>
         {outgoingLinks.length === 0 ? (
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '0 8px' }}>
             No outgoing links in this note.
           </div>
         ) : (
@@ -80,12 +80,12 @@ export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
       </div>
 
       {/* Note Metadata */}
-      <div className="panel-section" style={{ marginTop: 'auto', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+      <div className="panel-section" style={{ marginTop: 'auto', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
         <div className="panel-header">
           <Info size={14} />
           <span>Note Details</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', padding: '0 8px', color: 'var(--text-secondary)' }}>
           <div>Words: <strong>{wordCount}</strong></div>
           <div>Blocks: <strong>{page.blocks.length}</strong></div>
           <div>Updated: <strong>{new Date(page.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></div>

@@ -160,10 +160,10 @@ export const BrainGraph: React.FC = () => {
 
         <div style={{ width: 1, height: 16, background: 'var(--border-color)' }} />
 
-        <button className="btn-icon" onClick={() => setZoom((z) => z * 1.2)} title="Zoom In">
+        <button className="btn-icon" onClick={() => setZoom((z) => z * 1.2)} title="Zoom In" aria-label="Zoom In">
           <ZoomIn size={14} />
         </button>
-        <button className="btn-icon" onClick={() => setZoom((z) => z / 1.2)} title="Zoom Out">
+        <button className="btn-icon" onClick={() => setZoom((z) => z / 1.2)} title="Zoom Out" aria-label="Zoom Out">
           <ZoomOut size={14} />
         </button>
         <button
@@ -172,7 +172,7 @@ export const BrainGraph: React.FC = () => {
             setZoom(1);
             setPan({ x: 300, y: 250 });
           }}
-          title="Reset View"
+          title="Reset View" aria-label="Reset View"
         >
           <RotateCcw size={14} />
         </button>

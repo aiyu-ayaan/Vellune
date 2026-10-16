@@ -101,11 +101,12 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', padding: '0 1rem' }}>
-          <Search size={18} color="var(--text-muted)" />
+      <div className="modal-dialog" role="dialog" aria-modal="true" aria-label="Quick switcher" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <Search size={18} color="var(--text-muted)" aria-hidden="true" />
           <input
             className="modal-input"
+            aria-label="Search notes and commands"
             placeholder="Search notes, commands, or type to create..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -125,9 +126,9 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
               }}
             >
               <BookOpen size={16} />
-              <span style={{ fontWeight: 500 }}>{p.title || 'Untitled'}</span>
+              <span>{p.title || 'Untitled'}</span>
               {p.tags.length > 0 && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
                   {p.tags.map((t) => `#${t}`).join(' ')}
                 </span>
               )}

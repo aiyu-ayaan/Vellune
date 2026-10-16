@@ -1,14 +1,145 @@
-import React, { useRef, useState } from 'react';
-import { GripVertical } from 'lucide-react';
-import { Block, BlockKind, Page, newBlock } from '../model';
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, ChevronRight, GripVertical, Trash2 } from 'lucide-react';
+import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock } from '../model';
 import { store, useStore } from '../store';
 import { buildIndex } from '../links';
+import { useSync } from '../cloud/sync';
+
+const PLACEHOLDER = "Type '# ' or '- ' for formats, '[[' to link";
+
+const TURN_INTO: { label: string; kind: BlockKind; level?: number }[] = [
+  { label: 'Text', kind: 'paragraph' },
+  { label: 'Heading 1', kind: 'heading', level: 1 },
+  { label: 'Heading 2', kind: 'heading', level: 2 },
+  { label: 'Heading 3', kind: 'heading', level: 3 },
+  { label: 'To-do list', kind: 'todo' },
+  { label: 'Bulleted list', kind: 'bullet' },
+  { label: 'Quote', kind: 'quote' },
+  { label: 'Code', kind: 'code' },
+  { label: 'Divider', kind: 'divider' },
+];
+
+const TEXT_COLORS: NotionTextColor[] = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const BlockMenu: React.FC<{
+  block: Block;
+  onTurn: (t: { kind: BlockKind; level?: number }) => void;
+  onColor: (c: NotionColor) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}> = ({ block, onTurn, onColor, onDelete, onClose }) => {
+  const [sub, setSub] = useState<'turn' | 'color' | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const current: NotionColor = block.color ?? 'default';
+
+  useEffect(() => {
+    ref.current?.querySelector<HTMLElement>('button')?.focus();
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub]);
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      if (sub) setSub(null);
+      else onClose();
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const items = Array.from(ref.current?.querySelectorAll<HTMLElement>('button') ?? []);
+      const i = items.indexOf(document.activeElement as HTMLElement);
+      const next = e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+      items[next]?.focus();
+    }
+  };
+
+  const colorItem = (c: NotionColor, label: string, bg: boolean, key: NotionColor) => (
+    <button
+      key={key}
+      type="button"
+      role="menuitemradio"
+      aria-checked={current === key}
+      className="menu-item"
+      onClick={() => onColor(key)}
+    >
+      <span
+        className="swatch"
+        style={
+          c === 'default'
+            ? undefined
+            : bg
+              ? { background: `var(--nb-${c.replace('_background', '')})` }
+              : { color: `var(--nc-${c})` }
+        }
+        aria-hidden="true"
+      >
+        A
+      </span>
+      <span>{label}</span>
+      {current === key && <span className="menu-end"><Check size={14} aria-hidden="true" /></span>}
+    </button>
+  );
+
+  return (
+    <div className="popover" role="menu" aria-label="Block menu" ref={ref} onKeyDown={onKeyDown} style={{ left: 8, top: 30 }}>
+      {sub === null && (
+        <>
+          <button type="button" role="menuitem" className="menu-item" onClick={() => setSub('turn')} aria-haspopup="menu">
+            <span>Turn into</span>
+            <span className="menu-end"><ChevronRight size={14} aria-hidden="true" /></span>
+          </button>
+          <button type="button" role="menuitem" className="menu-item" onClick={() => setSub('color')} aria-haspopup="menu">
+            <span>Color</span>
+            <span className="menu-end"><ChevronRight size={14} aria-hidden="true" /></span>
+          </button>
+          <div className="popover-sep" />
+          <button type="button" role="menuitem" className="menu-item" onClick={onDelete} style={{ color: 'var(--danger)' }}>
+            <Trash2 size={14} aria-hidden="true" />
+            <span>Delete</span>
+          </button>
+        </>
+      )}
+      {sub === 'turn' && (
+        <>
+          <div className="popover-label">Turn into</div>
+          {TURN_INTO.map((t) => (
+            <button key={t.label} type="button" role="menuitem" className="menu-item" onClick={() => onTurn(t)}>
+              <span>{t.label}</span>
+              {block.kind === t.kind && (t.kind !== 'heading' || (block.level ?? 1) === t.level) && (
+                <span className="menu-end"><Check size={14} aria-hidden="true" /></span>
+              )}
+            </button>
+          ))}
+        </>
+      )}
+      {sub === 'color' && (
+        <>
+          <div className="popover-label">Text color</div>
+          {colorItem('default', 'Default', false, 'default')}
+          {TEXT_COLORS.map((c) => colorItem(c, cap(c), false, c))}
+          <div className="popover-label">Background color</div>
+          {colorItem('default', 'Default background', true, 'default')}
+          {TEXT_COLORS.map((c) => colorItem(`${c}_background`, `${cap(c)} background`, true, `${c}_background`))}
+        </>
+      )}
+    </div>
+  );
+};
 
 export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   const { pages } = useStore((s) => s);
+  const readOnly = useSync((s) => s.roles[page.id] === 'viewer');
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [newTagInput, setNewTagInput] = useState('');
   const [showTagForm, setShowTagForm] = useState(false);
+  const [menuBlockId, setMenuBlockId] = useState<string | null>(null);
+  const handleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const blockRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const index = buildIndex(Object.values(pages));
@@ -86,6 +217,15 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     }
   };
 
+  const patchBlock = (id: string, patch: (b: Block) => Block) =>
+    store.updatePage(page.id, (p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === id ? patch(b) : b)) }));
+
+  const closeMenu = (refocus = true) => {
+    const id = menuBlockId;
+    setMenuBlockId(null);
+    if (refocus && id) setTimeout(() => handleRefs.current[id]?.focus(), 0);
+  };
+
   const handleWikilinkClick = (target: string) => {
     store.openOrCreate(target, (t) => index.resolve(t));
   };
@@ -143,6 +283,9 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   return (
     <div className="editor-scroll-area">
       <div className="editor-center">
+        {readOnly && <div className="read-only-badge">View only — the owner shared this page with you as a viewer</div>}
+        {/* A disabled fieldset makes every control read-only for viewers in one place. */}
+        <fieldset className="editor-fieldset" disabled={readOnly}>
         {/* Document Title */}
         <input
           className="doc-title-input"
@@ -159,10 +302,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
               {page.tags.map((t) => (
                 <span key={t} className="tag-badge">
                   #{t}
-                  <button
-                    onClick={() => removeTag(t)}
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', marginLeft: 4, color: 'inherit' }}
-                  >
+                  <button onClick={() => removeTag(t)} aria-label={`Remove tag ${t}`}>
                     ×
                   </button>
                 </span>
@@ -175,17 +315,18 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                     onChange={(e) => setNewTagInput(e.target.value)}
                     placeholder="tag"
                     onKeyDown={(e) => e.key === 'Enter' && addTag()}
-                    style={{ fontSize: '0.8rem', padding: '1px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                    className="tag-input"
+                    aria-label="New tag"
                     autoFocus
                   />
-                  <button onClick={addTag} style={{ fontSize: '0.75rem', cursor: 'pointer' }}>Add</button>
+                  <button className="tag-add" onClick={addTag}>Add</button>
                 </div>
               ) : (
                 <button
+                  className="tag-add"
                   onClick={() => setShowTagForm(true)}
-                  style={{ background: 'transparent', border: '1px dashed var(--border-color)', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                 >
-                  + Add Tag
+                  + Add tag
                 </button>
               )}
             </div>
@@ -206,15 +347,58 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                   blockRefs.current[block.id]?.focus();
                 }}
               >
-                <div className="block-handle">
-                  <GripVertical size={14} />
+                <div className={`block-handle-wrap ${menuBlockId === block.id ? 'open' : ''}`}>
+                  <button
+                    type="button"
+                    className="block-handle"
+                    aria-label="Open block menu"
+                    aria-haspopup="menu"
+                    aria-expanded={menuBlockId === block.id}
+                    ref={(el) => { handleRefs.current[block.id] = el; }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuBlockId(menuBlockId === block.id ? null : block.id);
+                    }}
+                  >
+                    <GripVertical size={16} aria-hidden="true" />
+                  </button>
                 </div>
 
-                <div className="block-content">
+                {menuBlockId === block.id && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <BlockMenu
+                      block={block}
+                      onClose={() => closeMenu()}
+                      onTurn={(t) => {
+                        patchBlock(block.id, (b) => ({
+                          ...b,
+                          kind: t.kind,
+                          level: t.kind === 'heading' ? t.level : undefined,
+                          text: t.kind === 'divider' ? '' : b.text,
+                        }));
+                        closeMenu();
+                      }}
+                      onColor={(c) => {
+                        patchBlock(block.id, (b) => ({ ...b, color: c === 'default' ? undefined : c }));
+                        closeMenu();
+                      }}
+                      onDelete={() => {
+                        setMenuBlockId(null);
+                        store.updatePage(page.id, (p) => ({
+                          ...p,
+                          blocks: p.blocks.length > 1 ? p.blocks.filter((b) => b.id !== block.id) : [newBlock()],
+                        }));
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className={`block-content${block.color ? ` nc-${block.color}` : ''}`}>
                   {block.kind === 'todo' && (
                     <div className={`block-todo ${block.checked ? 'done' : ''}`}>
                       <input
                         type="checkbox"
+                        aria-label="Completed"
                         checked={block.checked ?? false}
                         onChange={(e) => {
                           store.updatePage(page.id, (p) => ({
@@ -232,6 +416,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                         onKeyDown={(e) => handleKeyDown(e, idx, block)}
                         onFocus={() => setActiveBlockId(block.id)}
                         onBlur={() => setActiveBlockId(null)}
+                        placeholder={PLACEHOLDER}
                       />
                     </div>
                   )}
@@ -248,6 +433,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                         onKeyDown={(e) => handleKeyDown(e, idx, block)}
                         onFocus={() => setActiveBlockId(block.id)}
                         onBlur={() => setActiveBlockId(null)}
+                        placeholder={PLACEHOLDER}
                       />
                     </div>
                   )}
@@ -264,13 +450,13 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       onKeyDown={(e) => handleKeyDown(e, idx, block)}
                       onFocus={() => setActiveBlockId(block.id)}
                       onBlur={() => setActiveBlockId(null)}
-                      placeholder={idx === 0 ? "Type something, or use '# ' for headings, '- ' for lists, '[[' to link..." : ''}
+                      placeholder={PLACEHOLDER}
                     />
                   )}
 
                   {/* Render preview wikilinks when not actively typing */}
                   {!isEditing && block.text.includes('[[') && (
-                    <div style={{ fontSize: '0.82rem', marginTop: '2px', color: 'var(--text-muted)' }}>
+                    <div className="wikilink-preview">
                       {renderTextWithWikilinks(block.text)}
                     </div>
                   )}
@@ -279,6 +465,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
             );
           })}
         </div>
+        </fieldset>
       </div>
     </div>
   );
