@@ -59,6 +59,22 @@ Documents are ordered sequences of atomic **Blocks**:
 - `EmbeddedPage`: Live transclusion of another page by UUID.
 - `CanvasNode`: Spatial positioning container (`x`, `y`, `width`, `height`).
 
+The web/desktop client (`packages/ui/src/model.ts`) currently implements these `BlockKind`s, with this Markdown mapping:
+
+| kind | Markdown |
+|------|----------|
+| `paragraph` | plain text |
+| `heading` | `#`–`######` |
+| `todo` | `- [ ]` / `- [x]` |
+| `bullet` | `- ` |
+| `numbered` | `1. ` (every item exports as `1.`; CommonMark renumbers) |
+| `quote` | `> ` |
+| `callout` | Obsidian callout `> [!note] …`; any `[!type]` imports as a callout |
+| `code` | fenced block with optional language |
+| `divider` | `---` |
+
+Block text holds inline Markdown (`**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `[label](https://…)`, `[[wikilinks]]`, `#tags`), stored verbatim and rendered by `packages/ui/src/inline.ts`.
+
 ---
 
 ## 4. Vector Stroke Representation

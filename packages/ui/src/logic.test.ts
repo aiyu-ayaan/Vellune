@@ -120,3 +120,14 @@ describe('link index and graph', () => {
     expect(deeper.nodes.map((n) => n.label).sort()).toEqual(['Alpha', 'Beta', 'Gamma']);
   });
 });
+
+describe('markdown numbered lists and callouts', () => {
+  it('round-trip', () => {
+    const page = newPage('Lists', {
+      blocks: [newBlock('numbered', 'one'), newBlock('numbered', 'two'), newBlock('callout', 'Heads up\nsecond line'), newBlock('quote', 'plain quote')],
+    });
+    const md = pageToMarkdown(page);
+    expect(md).toContain('> [!note] Heads up\n> second line');
+    expect(markdownToPage(md, 'x').blocks.map((b) => [b.kind, b.text])).toEqual(page.blocks.map((b) => [b.kind, b.text]));
+  });
+});

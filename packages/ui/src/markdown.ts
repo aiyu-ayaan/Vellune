@@ -86,6 +86,11 @@ function renderBlock(b: Block): string {
       return `- [${b.checked ? 'x' : ' '}] ${b.text}`;
     case 'bullet':
       return `- ${b.text}`;
+    case 'numbered':
+      // CommonMark renumbers a list from its first marker, so every item can be "1.".
+      return `1. ${b.text}`;
+    case 'callout':
+      return [`[!note] ${b.text.split('\n')[0]}`, ...b.text.split('\n').slice(1)].map((l) => `> ${l}`).join('\n');
     case 'quote':
       return b.text
         .split('\n')
@@ -188,7 +193,9 @@ function parseBlocks(body: string): { blocks: Block[]; canvas?: Page['canvas'] }
   let quote: string[] = [];
   const flush = () => {
     if (paragraph.length) blocks.push(newBlock('paragraph', paragraph.join('\n')));
-    if (quote.length) blocks.push(newBlock('quote', quote.join('\n')));
+    const callout = quote.length ? /^\[!\w+\][+-]?\s?(.*)$/.exec(quote[0]) : null;
+    if (callout) blocks.push(newBlock('callout', [callout[1], ...quote.slice(1)].join('\n')));
+    else if (quote.length) blocks.push(newBlock('quote', quote.join('\n')));
     paragraph = [];
     quote = [];
   };
@@ -231,12 +238,14 @@ function parseBlocks(body: string): { blocks: Block[]; canvas?: Page['canvas'] }
     const heading = /^(#{1,6})\s+(.*)$/.exec(t);
     const todo = /^[-*]\s+\[([ xX])\]\s+(.*)$/.exec(t);
     const bullet = /^[-*]\s+(.*)$/.exec(t);
-    if (heading || todo || bullet || /^(-{3,}|\*{3,})$/.test(t)) {
+    const numbered = /^\d+[.)]\s+(.*)$/.exec(t);
+    if (heading || todo || bullet || numbered || /^(-{3,}|\*{3,})$/.test(t)) {
       flush();
       if (heading) blocks.push(newBlock('heading', heading[2].trim(), { level: heading[1].length }));
       else if (todo) blocks.push(newBlock('todo', todo[2], { checked: todo[1] !== ' ' }));
       else if (/^(-{3,}|\*{3,})$/.test(t)) blocks.push(newBlock('divider'));
       else if (bullet) blocks.push(newBlock('bullet', bullet[1]));
+      else if (numbered) blocks.push(newBlock('numbered', numbered[1]));
       continue;
     }
     if (quote.length) flush();
