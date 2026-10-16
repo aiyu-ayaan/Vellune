@@ -82,6 +82,9 @@ importers:
 
   packages/ui:
     dependencies:
+      highlight.js:
+        specifier: 11.11.1
+        version: 11.11.1
       lucide-react:
         specifier: ^1.16.0
         version: 1.57.0(@types/react@19.3.0)(react@19.3.1)
@@ -782,6 +785,10 @@ packages:
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
+
+  highlight.js@11.11.1:
+    resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
+    engines: {node: '>=12.0.0'}
 
   is-fullwidth-code-point@3.0.0:
     resolution: {integrity: sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==}
@@ -1625,6 +1632,8 @@ snapshots:
   get-caller-file@2.0.5: {}
 
   has-flag@4.0.0: {}
+
+  highlight.js@11.11.1: {}
 
   is-fullwidth-code-point@3.0.0: {}
 

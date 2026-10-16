@@ -17,6 +17,7 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
+    "highlight.js": "11.11.1",
     "lucide-react": "^1.16.0",
     "yjs": "13.6.27"
   },

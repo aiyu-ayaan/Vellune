@@ -85,3 +85,14 @@ export function findTrigger(text: string, caret: number): Trigger | null {
   if (tag) return { kind: 'tag', start: caret - tag[1].length - 1, query: tag[1] };
   return null;
 }
+
+/** Where offset `i` in `prev` lands in `next` after a remote edit (common prefix/suffix diff). */
+export function mapOffset(prev: string, next: string, i: number): number {
+  let p = 0;
+  while (p < prev.length && p < next.length && prev[p] === next[p]) p++;
+  let q = 0;
+  while (q < prev.length - p && q < next.length - p && prev[prev.length - 1 - q] === next[next.length - 1 - q]) q++;
+  if (i <= p) return i;
+  if (i >= prev.length - q) return i + next.length - prev.length;
+  return next.length - q; // caret was inside replaced text: put it after the replacement
+}

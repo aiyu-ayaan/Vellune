@@ -4,7 +4,11 @@ import {
   ArrowUp,
   Calendar,
   Check,
+  ChevronDown,
   ChevronRight,
+  ClipboardCheck,
+  CornerDownLeft,
+  Palette,
   Clock,
   Code2,
   Copy,
@@ -31,8 +35,11 @@ import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock, todayKe
 import { store, useStore } from '../store';
 import { buildIndex } from '../links';
 import { markdownToPage } from '../markdown';
-import { TriggerKind, findTrigger, parseInline } from '../inline';
-import { useSync } from '../cloud/sync';
+import { TriggerKind, findTrigger, mapOffset, parseInline } from '../inline';
+import { CursorPos, RemoteCursor, sync, useSync } from '../cloud/sync';
+import { CODE_LANGUAGES, canonicalLanguage, highlightCode } from '../highlight';
+import { openContextMenu } from './ContextMenu';
+import { routePath } from '../route';
 
 type LucideIcon = typeof Type;
 
@@ -95,7 +102,8 @@ const HEADING_PLACEHOLDER = ['Heading 1', 'Heading 1', 'Heading 2', 'Heading 3',
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function autosize(el: HTMLTextAreaElement | null) {
-  if (!el) return;
+  // Code textareas overlay their highlighted copy and take its height from CSS.
+  if (!el || el.classList.contains('code-input')) return;
   el.style.height = 'auto';
   el.style.height = `${el.scrollHeight}px`;
 }
@@ -230,6 +238,9 @@ const BlockMenu: React.FC<{
 const SuggestMenu: React.FC<{ items: Suggestion[]; index: number; label: string; onHover: (i: number) => void }> = ({ items, index, label, onHover }) => {
   const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    listRef.current?.scrollIntoView({ block: 'nearest' });
+  }, []);
+  useEffect(() => {
     listRef.current?.querySelector<HTMLElement>(`[data-i="${index}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [index]);
   let lastGroup: string | undefined;
@@ -265,6 +276,122 @@ const SuggestMenu: React.FC<{ items: Suggestion[]; index: number; label: string;
   );
 };
 
+// ---------- collaborator cursors ----------
+
+type Caret = RemoteCursor & CursorPos;
+
+const CaretMark: React.FC<{ c: Caret }> = ({ c }) => (
+  <span className="remote-caret" style={{ '--caret': c.color } as React.CSSProperties} aria-hidden="true">
+    <span className="remote-caret-label">{c.name}</span>
+  </span>
+);
+
+/** Transparent copy of the source text with carets and selections, laid under a textarea or code. */
+const CaretLayer: React.FC<{ text: string; carets: Caret[]; className: string }> = ({ text, carets, className }) => {
+  const clamp = (n: number) => Math.max(0, Math.min(text.length, n));
+  const pts = [...new Set([0, text.length, ...carets.flatMap((c) => [clamp(c.anchor), clamp(c.head)])])].sort((a, b) => a - b);
+  const out: React.ReactNode[] = [];
+  pts.forEach((a, i) => {
+    carets.filter((c) => clamp(c.head) === a).forEach((c) => out.push(<CaretMark key={`c${c.conn}`} c={c} />));
+    const b = pts[i + 1];
+    if (b === undefined || b === a) return;
+    const sel = carets.find((c) => Math.min(c.anchor, c.head) <= a && b <= Math.max(c.anchor, c.head) && c.anchor !== c.head);
+    const seg = text.slice(a, b);
+    out.push(sel ? <mark key={`s${a}`} className="remote-sel" style={{ '--caret': sel.color } as React.CSSProperties}>{seg}</mark> : <span key={`t${a}`}>{seg}</span>);
+  });
+  return <div className={`caret-layer ${className}`} aria-hidden="true">{out}{'\n'}</div>;
+};
+
+// ---------- code language picker ----------
+
+const LangPicker: React.FC<{ value?: string; onChange: (lang: string | undefined) => void }> = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [idx, setIdx] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = canonicalLanguage(value);
+  const label = CODE_LANGUAGES.find(([id]) => id === current)?.[1] ?? value ?? 'Plain text';
+  const items = CODE_LANGUAGES.filter(([id, l]) => !q || l.toLowerCase().includes(q.toLowerCase()) || id.includes(q.toLowerCase()));
+
+  useEffect(() => {
+    if (!open) return;
+    ref.current?.querySelector('.lang-menu')?.scrollIntoView({ block: 'nearest' });
+    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const pick = (id: string) => {
+    onChange(id || undefined);
+    setOpen(false);
+    setQ('');
+  };
+
+  return (
+    <div className="code-lang-wrap" ref={ref}>
+      <button
+        type="button"
+        className="code-lang"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Code language: ${label}`}
+        onClick={() => {
+          setOpen((o) => !o);
+          setIdx(Math.max(0, CODE_LANGUAGES.findIndex(([id]) => id === current)));
+        }}
+      >
+        <span>{label}</span>
+        <ChevronDown size={12} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="popover lang-menu" role="listbox" aria-label="Code language">
+          <input
+            className="lang-search"
+            autoFocus
+            placeholder="Search language"
+            aria-label="Search language"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setIdx(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const n = items.length || 1;
+                setIdx((i) => (i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
+              } else if (e.key === 'Enter' && items[idx]) {
+                e.preventDefault();
+                pick(items[idx][0]);
+              } else if (e.key === 'Escape') {
+                e.stopPropagation();
+                setOpen(false);
+              }
+            }}
+          />
+          <div className="lang-list">
+            {items.map(([id, l], i) => (
+              <button
+                key={id || 'plain'}
+                type="button"
+                role="option"
+                aria-selected={id === current}
+                className={`menu-item${i === idx ? ' selected' : ''}`}
+                onMouseEnter={() => setIdx(i)}
+                onClick={() => pick(id)}
+              >
+                <span>{l}</span>
+                {id === current && <span className="menu-end"><Check size={14} aria-hidden="true" /></span>}
+              </button>
+            ))}
+            {!items.length && <div className="suggest-empty">No match</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ---------- editor ----------
 
 export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
@@ -282,6 +409,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       return true;
     }
   });
+  const [copied, setCopied] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ id: string; over?: string; after?: boolean } | null>(null);
   const handleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const blockRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
@@ -289,6 +417,27 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   const pendingFocus = useRef<{ id: string; caret?: number } | null>(null);
 
   const index = useMemo(() => buildIndex(Object.values(pages)), [pages]);
+  const rawCursors = useSync((s) => s.cursors[page.id]);
+  // Re-resolved on every page change so carets follow concurrent edits.
+  const remote = useMemo(() => sync.resolveCursors(page.id, rawCursors), [page, rawCursors]);
+  const caretsIn = (id: string) => remote.filter((c) => c.blockId === id);
+  /** Text and selection of the block being edited as this tab last saw them; detects remote edits. */
+  const seen = useRef<{ id: string; text: string; sel: [number, number] } | null>(null);
+  const report = (blockId: string, el: HTMLTextAreaElement) => {
+    seen.current = { id: blockId, text: el.value, sel: [el.selectionStart, el.selectionEnd] };
+    sync.setCursor(page.id, { blockId, anchor: el.selectionStart, head: el.selectionEnd });
+  };
+  useEffect(() => () => sync.setCursor(page.id, null), [page.id]);
+
+  // Block links (/doc/{id}#b-{block}) scroll to the block and flash it once.
+  useEffect(() => {
+    const id = location.hash.startsWith('#b-') ? location.hash.slice(1) : null;
+    const el = id && document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1600);
+  }, [page.id]);
   const allTags = useMemo(() => [...new Set([...index.tags.keys(), ...page.tags])].sort(), [index, page.tags]);
 
   // Place the caret after React has rendered the textarea for the newly active block.
@@ -300,6 +449,17 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     el.focus({ preventScroll: false });
     const pos = f.caret === undefined ? el.value.length : Math.min(f.caret, el.value.length);
     el.setSelectionRange(pos, pos);
+    seen.current = { id: f.id, text: el.value, sel: [pos, pos] };
+  });
+  // A collaborator changed the block being edited: React rewrote the textarea value and moved the
+  // caret to the end, so put it back on the same character.
+  useLayoutEffect(() => {
+    const el = active ? blockRefs.current[active] : null;
+    const was = seen.current;
+    if (!el || !was || was.id !== active || pendingFocus.current || was.text === el.value) return;
+    const [a, b] = was.sel.map((i) => mapOffset(was.text, el.value, i));
+    el.setSelectionRange(a, b);
+    seen.current = { id: was.id, text: el.value, sel: [a, b] };
   });
   useLayoutEffect(() => {
     if (active) autosize(blockRefs.current[active]);
@@ -700,18 +860,40 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
 
   // ---------- rendered (non-editing) text ----------
 
-  const renderRich = (text: string) =>
-    parseInline(text).map((t, k) => {
+  const renderRich = (text: string, carets: Caret[] = []) => {
+    const toks = parseInline(text);
+    if (!toks.length) return carets.map((c) => <CaretMark key={c.conn} c={c} />);
+    // Each caret goes into the token whose visible text contains (or ends at) its offset.
+    const owner = (c: Caret) => {
+      const i = toks.findIndex((t) => c.head <= t.start + t.text.length);
+      return i < 0 ? toks.length - 1 : i;
+    };
+    const split = (t: (typeof toks)[number], k: number): React.ReactNode => {
+      const mine = carets.filter((c) => owner(c) === k);
+      if (!mine.length) return t.text;
+      const cuts = [...new Set(mine.map((c) => Math.max(0, Math.min(t.text.length, c.head - t.start))))].sort((a, b) => a - b);
+      const parts: React.ReactNode[] = [];
+      let prev = 0;
+      for (const cut of cuts) {
+        if (cut > prev) parts.push(<span key={`p${prev}`} data-s={t.start + prev}>{t.text.slice(prev, cut)}</span>);
+        mine.filter((c) => Math.max(0, Math.min(t.text.length, c.head - t.start)) === cut).forEach((c) => parts.push(<CaretMark key={`c${c.conn}`} c={c} />));
+        prev = cut;
+      }
+      if (prev < t.text.length) parts.push(<span key={`p${prev}`} data-s={t.start + prev}>{t.text.slice(prev)}</span>);
+      return parts;
+    };
+    return toks.map((t, k) => {
       const s = t.start;
+      const body = split(t, k);
       switch (t.type) {
         case 'bold':
-          return <strong key={k} data-s={s}>{t.text}</strong>;
+          return <strong key={k} data-s={s}>{body}</strong>;
         case 'italic':
-          return <em key={k} data-s={s}>{t.text}</em>;
+          return <em key={k} data-s={s}>{body}</em>;
         case 'strike':
-          return <s key={k} data-s={s}>{t.text}</s>;
+          return <s key={k} data-s={s}>{body}</s>;
         case 'code':
-          return <code key={k} className="inline-code" data-s={s}>{t.text}</code>;
+          return <code key={k} className="inline-code" data-s={s}>{body}</code>;
         case 'wikilink': {
           const target = index.resolve(t.target);
           return (
@@ -727,7 +909,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                 store.openOrCreate(t.target, (x) => index.resolve(x));
               }}
             >
-              {t.text}
+              {body}
             </a>
           );
         }
@@ -735,7 +917,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         case 'url':
           return (
             <a key={k} data-s={s} href={t.href} target="_blank" rel="noopener noreferrer" className="inline-link" onClick={(e) => e.stopPropagation()}>
-              {t.text}
+              {body}
             </a>
           );
         case 'tag':
@@ -752,13 +934,14 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                 store.setDatabaseTag(t.tag);
               }}
             >
-              {t.text}
+              {body}
             </a>
           );
         default:
-          return <span key={k} data-s={s}>{t.text}</span>;
+          return <span key={k} data-s={s}>{body}</span>;
       }
     });
+  };
 
   /** Click in rendered text: switch the block to editing with the caret where the user clicked. */
   const onRenderedClick = (e: React.MouseEvent, block: Block) => {
@@ -767,42 +950,94 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     if (sel && !sel.isCollapsed) return; // the user is selecting text to copy
     let caret: number | undefined;
     const node = sel?.anchorNode;
+    if (block.kind === 'code' && node && e.currentTarget.contains(node)) {
+      // Highlighted text equals the source, so the text length before the click point is the caret.
+      const r = document.createRange();
+      r.setStart(e.currentTarget, 0);
+      r.setEnd(node, sel!.anchorOffset);
+      return focusBlock(block.id, r.toString().length);
+    }
     const host = (node?.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element | null))?.closest<HTMLElement>('[data-s]');
     if (host && e.currentTarget.contains(host)) caret = Number(host.dataset.s) + (node?.nodeType === Node.TEXT_NODE ? sel!.anchorOffset : 0);
     focusBlock(block.id, caret);
   };
 
   const editable = (block: Block, i: number) => {
+    const isCode = block.kind === 'code';
+    const codeHtml = isCode ? { __html: `${highlightCode(block.text, block.language)}\n` } : undefined;
     if (active === block.id && !readOnly) {
-      return (
+      const input = (
         <textarea
           ref={(el) => {
             blockRefs.current[block.id] = el;
           }}
-          className="block-input"
+          className={isCode ? 'block-input code-input' : 'block-input'}
           rows={1}
           value={block.text}
-          spellCheck={block.kind !== 'code'}
+          spellCheck={!isCode}
           aria-label={block.kind === 'heading' ? `Heading ${block.level ?? 1}` : 'Block text'}
           aria-autocomplete="list"
           aria-expanded={menu?.blockId === block.id}
           aria-activedescendant={menu?.blockId === block.id && suggestions.length ? `suggest-${menu.index}` : undefined}
-          onChange={(e) => onChange(block, e.currentTarget)}
+          onChange={(e) => {
+            onChange(block, e.currentTarget);
+            report(block.id, e.currentTarget);
+          }}
+          onFocus={(e) => report(block.id, e.currentTarget)}
           onKeyDown={(e) => onKeyDown(e, i, block)}
           onPaste={(e) => onPaste(e, block)}
           onSelect={(e) => {
             const el = e.currentTarget;
+            report(block.id, el);
             if (menu?.blockId === block.id && (el.selectionStart < menu.start || el.selectionStart !== el.selectionEnd)) setMenu(null);
           }}
           onBlur={() => {
+            sync.setCursor(page.id, null);
             setActive((a) => (a === block.id ? null : a));
             setMenu(null);
           }}
-          placeholder={block.kind === 'heading' ? HEADING_PLACEHOLDER[block.level ?? 1] : block.kind === 'code' ? 'Code' : PLACEHOLDER}
+          placeholder={block.kind === 'heading' ? HEADING_PLACEHOLDER[block.level ?? 1] : isCode ? 'Code' : PLACEHOLDER}
         />
+      );
+      const carets = caretsIn(block.id);
+      if (!isCode) {
+        return carets.length ? (
+          <>
+            <CaretLayer text={block.text} carets={carets} className="block-text" />
+            {input}
+          </>
+        ) : input;
+      }
+      return (
+        <div className="code-surface">
+          <pre className="code-highlight" aria-hidden="true" dangerouslySetInnerHTML={codeHtml} />
+          {carets.length > 0 && <CaretLayer text={block.text} carets={carets} className="code-highlight" />}
+          {input}
+        </div>
       );
     }
     const lonelyEmpty = page.blocks.length === 1 && block.text === '';
+    if (isCode) {
+      return (
+        <div className="code-surface">
+          <pre
+            className="code-highlight block-text"
+            role={readOnly ? undefined : 'textbox'}
+            tabIndex={readOnly ? undefined : 0}
+            aria-label={readOnly ? 'Code' : 'Edit code'}
+            onClick={(e) => onRenderedClick(e, block)}
+            onKeyDown={(e) => {
+              if (e.target === e.currentTarget && e.key === 'Enter') {
+                e.preventDefault();
+                focusBlock(block.id);
+              }
+            }}
+            dangerouslySetInnerHTML={codeHtml}
+          />
+          {caretsIn(block.id).length > 0 && <CaretLayer text={block.text} carets={caretsIn(block.id)} className="code-highlight" />}
+        </div>
+      );
+    }
     return (
       <div
         className={`block-text${block.text === '' ? ' empty' : ''}`}
@@ -818,7 +1053,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
           }
         }}
       >
-        {block.kind === 'code' ? <span data-s={0}>{block.text}</span> : renderRich(block.text)}
+        {renderRich(block.text, caretsIn(block.id))}
       </div>
     );
   };
@@ -995,6 +1230,44 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                 <div
                   key={block.id}
                   id={`b-${block.id}`}
+                  onContextMenu={(e) => {
+                    if ((e.target as HTMLElement).closest('textarea, input')) return; // keep spellcheck/paste
+                    const at = (dir: -1 | 1) => page.blocks[i + dir];
+                    openContextMenu(e, [
+                      { label: 'Copy text', icon: Copy, onSelect: () => void navigator.clipboard?.writeText(block.text) },
+                      {
+                        label: 'Copy link to block',
+                        icon: Link2,
+                        onSelect: () => void navigator.clipboard?.writeText(`${location.origin}${routePath({ view: 'page', pageId: page.id })}#b-${block.id}`),
+                      },
+                      'separator',
+                      ...(readOnly
+                        ? []
+                        : ([
+                            { label: 'Edit', icon: Type, onSelect: () => focusBlock(block.id), disabled: block.kind === 'divider' },
+                            {
+                              label: 'Insert block below',
+                              icon: CornerDownLeft,
+                              onSelect: () => {
+                                const b = newBlock();
+                                insertAfter(block.id, b);
+                                focusBlock(b.id, 0);
+                              },
+                            },
+                            { label: 'Turn into / color…', icon: Palette, onSelect: () => setMenuBlockId(block.id) },
+                            { label: 'Duplicate', icon: Copy, onSelect: () => insertAfter(block.id, { ...block, id: newBlock().id }) },
+                            { label: 'Move up', icon: ArrowUp, disabled: !at(-1), onSelect: () => moveBlock(block.id, at(-1)!.id, false) },
+                            { label: 'Move down', icon: ArrowDown, disabled: !at(1), onSelect: () => moveBlock(block.id, at(1)!.id, true) },
+                            'separator',
+                            {
+                              label: 'Delete',
+                              icon: Trash2,
+                              danger: true,
+                              onSelect: () => update((bs) => (bs.length > 1 ? bs.filter((b) => b.id !== block.id) : [newBlock()])),
+                            },
+                          ] as const)),
+                    ]);
+                  }}
                   className={`block-row block-${block.kind}${block.kind === 'heading' ? ` block-heading-${block.level ?? 1}` : ''}${active === block.id ? ' editing' : ''}${drag?.id === block.id ? ' dragging' : ''}${isDrop ? (drag.after ? ' drop-after' : ' drop-before') : ''}`}
                   onDragOver={(e) => {
                     if (!drag) return;
@@ -1072,6 +1345,26 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                   )}
 
                   <div className={`block-content${block.color ? ` nc-${block.color}` : ''}`}>
+                    {block.kind === 'code' && (
+                      <div className="code-toolbar">
+                        <LangPicker value={block.language} onChange={(language) => patchBlock(block.id, (b) => ({ ...b, language }))} />
+                        <button
+                          type="button"
+                          className="code-copy"
+                          aria-label="Copy code"
+                          title="Copy code"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(block.text).then(() => {
+                              setCopied(block.id);
+                              setTimeout(() => setCopied((c) => (c === block.id ? null : c)), 1500);
+                            });
+                          }}
+                        >
+                          {copied === block.id ? <ClipboardCheck size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+                          <span>{copied === block.id ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
+                    )}
                     {block.kind === 'divider' ? (
                       <hr className="block-divider" />
                     ) : (

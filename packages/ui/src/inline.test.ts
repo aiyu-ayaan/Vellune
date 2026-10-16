@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findTrigger, parseInline } from './inline';
+import { findTrigger, mapOffset, parseInline } from './inline';
 
 describe('parseInline', () => {
   it('tokenizes marks, links, tags and keeps visible text as source substrings', () => {
@@ -27,5 +27,14 @@ describe('findTrigger', () => {
     expect(findTrigger('[[done]] x', 10)).toBeNull();
     expect(findTrigger('x #pro', 6)).toEqual({ kind: 'tag', start: 2, query: 'pro' });
     expect(findTrigger('# ', 2)).toBeNull();
+  });
+});
+
+describe('mapOffset', () => {
+  it('keeps the caret on the same character across remote inserts and deletes', () => {
+    expect(mapOffset('hello world', 'B: hello world', 6)).toBe(9); // insert before caret shifts it
+    expect(mapOffset('hello world', 'hello world!!', 6)).toBe(6); // insert after caret does not
+    expect(mapOffset('hello brave world', 'hello world', 14)).toBe(8); // delete before caret
+    expect(mapOffset('abcdef', 'abXYef', 3)).toBe(4); // caret inside replaced range
   });
 });

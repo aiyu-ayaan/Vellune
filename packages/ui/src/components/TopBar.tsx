@@ -15,6 +15,8 @@ import { markdownToPage, pageToMarkdown } from '../markdown';
 import { useSession } from '../cloud/session';
 import { useSync } from '../cloud/sync';
 import { Avatar, ShareMenu } from './ShareMenu';
+import { VersionHistory } from './VersionHistory';
+import { History } from 'lucide-react';
 
 const SyncStatus: React.FC = () => {
   const status = useSession((s) => s.status);
@@ -61,6 +63,19 @@ export const TopBar: React.FC<{
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Ctrl/Cmd+Alt+Shift+H opens version history, as in Google Docs.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.shiftKey && e.code === 'KeyH') {
+        e.preventDefault();
+        setHistoryOpen(true);
+      }
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
   const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -171,8 +186,12 @@ export const TopBar: React.FC<{
                 >
                   <MoreHorizontal size={16} />
                 </button>
+                {historyOpen && <VersionHistory page={activePage} onClose={() => setHistoryOpen(false)} />}
                 {moreOpen && (
                   <div className="more-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); setHistoryOpen(true); }}>
+                      <History size={15} aria-hidden="true" /> Version history
+                    </button>
                     <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); handleExport(); }}>
                       <Download size={15} aria-hidden="true" /> Export Markdown
                     </button>
