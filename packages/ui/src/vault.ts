@@ -113,6 +113,24 @@ export function exportWorkspace(pages: Page[]): Blob {
 
 // ---------- import ----------
 
+/** Notion exports name every file and folder "Title <32 hex id>"; the id is noise to people. */
+export const stripNotionId = (name: string) => name.replace(/\s+[0-9a-f]{32}(?=(\.[a-z]+)?$)/i, '');
+
+/** Notion links pages as relative Markdown links to their files; make those wikilinks. */
+export function notionLinksToWikilinks(text: string): string {
+  return text.replace(/(?<!!)\[([^\]]*)\]\(([^)\s]+\.md)\)/g, (all, label: string, href: string) => {
+    if (/^[a-z]+:/i.test(href)) return all;
+    let file: string;
+    try {
+      file = decodeURIComponent(href);
+    } catch {
+      file = href;
+    }
+    const title = stripNotionId(file.split('/').pop()!.replace(/\.md$/i, ''));
+    return label && label !== title ? `[[${title}|${label}]]` : `[[${title}]]`;
+  });
+}
+
 /**
  * Pages for Markdown files keyed by relative path ("Notes/Ideas/plan.md"). Directories become
  * sidebar folders; a file's frontmatter title wins over its file name.
@@ -120,13 +138,14 @@ export function exportWorkspace(pages: Page[]): Blob {
 export function importMarkdownFiles(files: { path: string; text: string }[]): Page[] {
   const folders = new Map<string, Page>();
   const out: Page[] = [];
+  const notion = files.some((f) => /\s[0-9a-f]{32}\.md$/i.test(f.path));
   const folderFor = (dir: string): string | undefined => {
     if (!dir) return undefined;
     let f = folders.get(dir);
     if (!f) {
       const cut = dir.lastIndexOf('/');
       const parentId = folderFor(cut < 0 ? '' : dir.slice(0, cut));
-      f = newPage(dir.slice(cut + 1), { folder: true, blocks: [], parentId });
+      f = newPage(notion ? stripNotionId(dir.slice(cut + 1)) : dir.slice(cut + 1), { folder: true, blocks: [], parentId });
       folders.set(dir, f);
       out.push(f);
     }
@@ -136,7 +155,10 @@ export function importMarkdownFiles(files: { path: string; text: string }[]): Pa
     const parts = file.path.split('/').filter(Boolean);
     const name = parts.pop() ?? 'Untitled.md';
     if (!/\.(md|markdown|txt)$/i.test(name)) continue;
-    const page = markdownToPage(file.text, name.replace(/\.(md|markdown|txt)$/i, ''));
+    const base = name.replace(/\.(md|markdown|txt)$/i, '');
+    const page = notion
+      ? markdownToPage(notionLinksToWikilinks(file.text), stripNotionId(base))
+      : markdownToPage(file.text, base);
     const parentId = folderFor(parts.join('/'));
     out.push(parentId ? { ...page, parentId } : page);
   }

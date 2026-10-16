@@ -40,3 +40,24 @@ describe('workspace vault', () => {
     expect(importMarkdownFiles([{ path: 'vault/.obsidian/app.json', text: '{}' }])).toEqual([]);
   });
 });
+
+describe('Notion export import', () => {
+  it('drops Notion ids from names and turns file links into wikilinks', async () => {
+    const { stripNotionId, notionLinksToWikilinks } = await import('./vault');
+    expect(stripNotionId('Roadmap 0123456789abcdef0123456789abcdef.md')).toBe('Roadmap.md');
+    expect(stripNotionId('Roadmap 0123456789abcdef0123456789abcdef')).toBe('Roadmap');
+    expect(notionLinksToWikilinks('See [Q3 Plan](Roadmap%200123456789abcdef0123456789abcdef/Q3%20Plan%20fedcba9876543210fedcba9876543210.md) and [x](https://a.b/c.md)')).toBe(
+      'See [[Q3 Plan]] and [x](https://a.b/c.md)',
+    );
+    expect(notionLinksToWikilinks('[the plan](Plan%200123456789abcdef0123456789abcdef.md)')).toBe('[[Plan|the plan]]');
+  });
+
+  it('imports a Notion tree with clean titles', () => {
+    const pages = importMarkdownFiles([
+      { path: 'Export/Roadmap 0123456789abcdef0123456789abcdef.md', text: '# Roadmap\n\nSee [Q3](Roadmap%200123456789abcdef0123456789abcdef/Q3%20fedcba9876543210fedcba9876543210.md)' },
+      { path: 'Export/Roadmap 0123456789abcdef0123456789abcdef/Q3 fedcba9876543210fedcba9876543210.md', text: 'Q3 body' },
+    ]);
+    expect(pages.map((p) => p.title)).toEqual(['Export', 'Roadmap', 'Roadmap', 'Q3']);
+    expect(pages[1].blocks.some((b) => b.text.includes('[[Q3]]'))).toBe(true);
+  });
+});
