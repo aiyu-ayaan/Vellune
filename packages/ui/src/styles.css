@@ -490,6 +490,8 @@ button, input, textarea { font-family: inherit; color: inherit; }
 
 .block-image { display: block; max-width: 100%; max-height: 640px; border-radius: 6px; margin: 4px 0; }
 .public-image { display: block; max-width: 100%; border-radius: 6px; margin: 8px 0; }
+.block-image[draggable="true"] { cursor: grab; }
+.image-placeholder { display: flex; align-items: center; justify-content: center; min-height: 120px; background: var(--bg-hover); color: var(--text-muted); font-size: 13px; }
 .block-divider { border: none; border-top: 1px solid var(--border-color); margin: 8px 0; width: 100%; }
 
 .wikilink-tag { color: var(--accent-text); border-bottom: 1px solid var(--border-color); cursor: pointer; text-decoration: none; }

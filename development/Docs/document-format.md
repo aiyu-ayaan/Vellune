@@ -72,6 +72,14 @@ The web/desktop client (`packages/ui/src/model.ts`) currently implements these `
 | `callout` | Obsidian callout `> [!note] …`; any `[!type]` imports as a callout |
 | `code` | fenced block with optional language |
 | `divider` | `---` |
+| `image` | `![alt](src)` on its own line |
+
+An `image` block keeps its alt text in `text` and the picture in `src`, one of:
+
+- `vblob:<blob-id>:<mime>`: a file in the server's encrypted blob store, sealed with the page key (`iv[12] || AES-GCM`). Used whenever the page is in the cloud. Clients fetch `GET /pages/{id}/blobs/{blob-id}` and decrypt locally.
+- `data:<mime>;base64,…`: inline, for pages not in the cloud yet (local mode, offline, not yet registered). Capped at 1.5 MB; it stays inline after the page syncs (still E2E-encrypted inside the page updates).
+
+Markdown export writes `src` as-is, so `vblob:` images export as references, not files (known limitation until export bundles attachments).
 
 Pages also carry tree metadata, synced in the page's Yjs `meta` map: `parentId` (containing folder or parent doc; unknown parent = root), `folder` (a sidebar folder: no content, excluded from links, graph, search, and databases), and `order` (manual sibling order). `favorite` stays per-device and `seeded` (untouched starter page) is never synced.
 

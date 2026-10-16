@@ -32,7 +32,9 @@ import {
   Trash2,
   Type,
 } from 'lucide-react';
-import { imageToDataUrl, isImage } from '../image';
+import { INLINE_MAX, isImage, prepareImage, readDataUrl } from '../image';
+import { uploadBlob } from '../cloud/blobs';
+import { BlobImage } from './BlobImage';
 import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock, todayKey } from '../model';
 import { store, useStore } from '../store';
 import { buildIndex } from '../links';
@@ -488,9 +490,15 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   const addImages = async (files: File[], anchorId?: string) => {
     if (readOnly) return;
     const imgs = files.filter(isImage);
-    const urls = await Promise.all(imgs.map(imageToDataUrl));
+    // Encrypted upload when the page is in the cloud; otherwise inline, so offline still works.
+    const toSrc = async (f: File) => {
+      const data = await prepareImage(f);
+      if (!data) return null;
+      return (await uploadBlob(page.id, data)) ?? (data.size <= INLINE_MAX ? readDataUrl(data) : null);
+    };
+    const urls = await Promise.all(imgs.map(toSrc));
     const blocks = urls.flatMap((src, i) => (src ? [newBlock('image', imgs[i].name.replace(/\.[^.]+$/, ''), { src })] : []));
-    if (urls.some((u) => !u)) window.alert('Some images were skipped: over 1.5 MB after compression.');
+    if (urls.some((u) => !u)) window.alert('Some images were skipped: too large, or too large to keep offline (1.5 MB) until this page syncs.');
     if (!blocks.length) return;
     update((bs) => {
       const at = anchorId ? bs.findIndex((b) => b.id === anchorId) : bs.length - 1;
@@ -499,6 +507,14 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
       const out = [...bs.slice(0, replace ? at : at + 1), ...blocks, ...bs.slice(at + 1)];
       return out[out.length - 1].kind === 'image' ? [...out, newBlock()] : out;
     });
+  };
+
+  const startBlockDrag = (e: React.DragEvent, block: Block) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', block.text);
+    const row = document.getElementById(`b-${block.id}`);
+    if (row) e.dataTransfer.setDragImage(row, 40, 12);
+    setDrag({ id: block.id });
   };
 
   // ---------- suggestions ----------
@@ -1278,7 +1294,8 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
             onDragEnd={() => setDrag(null)}
             onDragOver={(e) => e.dataTransfer.types.includes('Files') && e.preventDefault()}
             onDrop={(e) => {
-              if (!e.dataTransfer.files.length) return;
+              // A dragged <img> can carry its picture as a File; block moves are not uploads.
+              if (drag || !e.dataTransfer.files.length) return;
               e.preventDefault();
               void addImages([...e.dataTransfer.files]);
             }}
@@ -1357,13 +1374,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       aria-haspopup="menu"
                       aria-expanded={menuBlockId === block.id}
                       draggable={!readOnly}
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', block.text);
-                        const row = document.getElementById(`b-${block.id}`);
-                        if (row) e.dataTransfer.setDragImage(row, 40, 12);
-                        setDrag({ id: block.id });
-                      }}
+                      onDragStart={(e) => startBlockDrag(e, block)}
                       ref={(el) => {
                         handleRefs.current[block.id] = el;
                       }}
@@ -1432,7 +1443,17 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       </div>
                     )}
                     {block.kind === 'image' ? (
-                      block.src && <img className="block-image" src={block.src} alt={block.text} draggable={false} />
+                      block.src && (
+                        // The picture itself is a drag handle too: grabbing an image moves its block.
+                        <BlobImage
+                          pageId={page.id}
+                          src={block.src}
+                          alt={block.text}
+                          className="block-image"
+                          draggable={!readOnly}
+                          onDragStart={(e) => startBlockDrag(e, block)}
+                        />
+                      )
                     ) : block.kind === 'divider' ? (
                       <hr className="block-divider" />
                     ) : (

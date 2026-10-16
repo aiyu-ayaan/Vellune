@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { Block, Page } from '../model';
 import { openPublicPage } from '../cloud/sync';
+import { importPageKey } from '../cloud/crypto';
+import { BlobImage } from './BlobImage';
 import { parseInline } from '../inline';
 import { highlightCode } from '../highlight';
 import './cloud.css';
@@ -32,7 +34,9 @@ export const ReadOnlyBlocks: React.FC<{
   page: Page;
   changes?: Record<string, 'added' | 'changed'>;
   removed?: { block: Block; after: string | null }[];
-}> = ({ page, changes, removed }) => {
+  /** Key for encrypted images; members' keys come from sync, public readers' from the link. */
+  pageKey?: CryptoKey;
+}> = ({ page, changes, removed, pageKey }) => {
   const removedIds = new Set((removed ?? []).map((r) => r.block.id));
   const shown = withRemoved(page.blocks, removed);
   return (
@@ -66,7 +70,7 @@ export const ReadOnlyBlocks: React.FC<{
                 case 'code':
                   return <pre key={b.id} className={`public-code${mark}`}><code dangerouslySetInnerHTML={{ __html: highlightCode(b.text, b.language) }} /></pre>;
                 case 'image':
-                  return b.src ? <img key={b.id} src={b.src} alt={b.text} className={`public-image${mark}`} /> : null;
+                  return b.src ? <BlobImage key={b.id} pageId={page.id} src={b.src} alt={b.text} className={`public-image${mark}`} pageKey={pageKey} /> : null;
                 case 'divider':
                   return <hr key={b.id} className={mark.trim() || undefined} />;
                 default:
@@ -81,6 +85,10 @@ export const ReadOnlyBlocks: React.FC<{
 export const PublicPage: React.FC<{ pageId: string; rawKey: string }> = ({ pageId, rawKey }) => {
   const [page, setPage] = useState<Page | null>(null);
   const [error, setError] = useState<string | null>(rawKey ? null : 'This link is missing its decryption key.');
+  const [pageKey, setPageKey] = useState<CryptoKey>();
+  useEffect(() => {
+    if (rawKey) importPageKey(rawKey).then(setPageKey, () => {});
+  }, [rawKey]);
 
   useEffect(() => {
     if (!rawKey) return;
@@ -112,7 +120,7 @@ export const PublicPage: React.FC<{ pageId: string; rawKey: string }> = ({ pageI
         {page && (
           <>
             <h1 className="title">{page.title || 'Untitled'}</h1>
-            <ReadOnlyBlocks page={page} />
+            <ReadOnlyBlocks page={page} pageKey={pageKey} />
           </>
         )}
       </article>
