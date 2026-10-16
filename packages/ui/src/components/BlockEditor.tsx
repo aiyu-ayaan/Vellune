@@ -30,6 +30,11 @@ import {
   Plus,
   Quote,
   Smile,
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
+  ExternalLink,
   Trash2,
   Type,
 } from 'lucide-react';
@@ -108,6 +113,30 @@ const PLACEHOLDER = "Type '/' for commands, '[[' to link a page, '#' to tag";
 const HEADING_PLACEHOLDER = ['Heading 1', 'Heading 1', 'Heading 2', 'Heading 3', 'Heading 4', 'Heading 5', 'Heading 6'];
 
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Position of character `pos` inside a textarea, relative to the textarea, via a styled mirror. */
+function caretOffset(el: HTMLTextAreaElement, pos: number): { x: number; y: number } {
+  const cs = getComputedStyle(el);
+  const div = document.createElement('div');
+  for (const k of ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'padding', 'border', 'boxSizing', 'whiteSpace', 'overflowWrap', 'wordBreak'] as const)
+    div.style[k] = cs[k];
+  Object.assign(div.style, { position: 'absolute', visibility: 'hidden', width: `${el.clientWidth}px`, whiteSpace: 'pre-wrap' });
+  div.textContent = el.value.slice(0, pos);
+  const mark = document.createElement('span');
+  mark.textContent = '\u200b';
+  div.appendChild(mark);
+  document.body.appendChild(div);
+  const at = { x: mark.offsetLeft, y: mark.offsetTop };
+  div.remove();
+  return at;
+}
+
+const FORMATS: { mark: string; label: string; icon: LucideIcon; keys: string }[] = [
+  { mark: '**', label: 'Bold', icon: Bold, keys: 'Ctrl+B' },
+  { mark: '*', label: 'Italic', icon: Italic, keys: 'Ctrl+I' },
+  { mark: '~~', label: 'Strikethrough', icon: Strikethrough, keys: 'Ctrl+Shift+S' },
+  { mark: '`', label: 'Inline code', icon: Code, keys: 'Ctrl+E' },
+];
 
 function autosize(el: HTMLTextAreaElement | null) {
   // Code textareas overlay their highlighted copy and take its height from CSS.
@@ -420,6 +449,8 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   });
   const [copied, setCopied] = useState<string | null>(null);
   const [iconOpen, setIconOpen] = useState(false);
+  /** Formatting bar over a text selection in the block being edited. */
+  const [selBar, setSelBar] = useState<{ blockId: string; x: number; y: number } | null>(null);
   // Folded toggles are a per-device view choice, like a collapsed sidebar folder; never synced.
   const [collapsedIds, setCollapsed] = useState<Set<string>>(() => {
     try {
@@ -808,6 +839,22 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     requestAnimationFrame(() => el.setSelectionRange(s + shift, e + shift));
   };
 
+  /** Turn the selection into `[[page]]`, or `[text](https://)` with the URL selected for typing. */
+  const linkSelection = (block: Block, as: 'page' | 'url') => {
+    const el = blockRefs.current[block.id];
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e } = el;
+    const sel = block.text.slice(s, e);
+    const ins = as === 'page' ? `[[${sel}]]` : `[${sel}](https://)`;
+    patchBlock(block.id, (b) => ({ ...b, text: b.text.slice(0, s) + ins + b.text.slice(e) }));
+    const [a, z] = as === 'page' ? [s + 2, s + 2 + sel.length] : [s + sel.length + 3, s + ins.length - 1];
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(a, z);
+    });
+    setSelBar(null);
+  };
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, i: number, block: Block) => {
     const el = e.currentTarget;
     const pos = el.selectionStart;
@@ -1112,8 +1159,13 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
             const el = e.currentTarget;
             report(block.id, el);
             if (menu?.blockId === block.id && (el.selectionStart < menu.start || el.selectionStart !== el.selectionEnd)) setMenu(null);
+            if (el.selectionStart !== el.selectionEnd && !isCode) {
+              const a = caretOffset(el, el.selectionStart);
+              setSelBar({ blockId: block.id, x: el.offsetLeft + a.x, y: el.offsetTop + a.y });
+            } else if (selBar) setSelBar(null);
           }}
           onBlur={() => {
+            setSelBar(null);
             sync.setCursor(page.id, null);
             setActive((a) => (a === block.id ? null : a));
             setMenu(null);
@@ -1524,6 +1576,39 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                         >
                           {copied === block.id ? <ClipboardCheck size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
                           <span>{copied === block.id ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
+                    )}
+                    {selBar?.blockId === block.id && active === block.id && (
+                      <div
+                        className="format-bar"
+                        role="toolbar"
+                        aria-label="Format selection"
+                        style={{ left: Math.max(0, selBar.x - 8), top: selBar.y }}
+                        // Keep focus and selection in the textarea while clicking.
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        {FORMATS.map((f) => (
+                          <button
+                            key={f.mark}
+                            type="button"
+                            className="format-btn"
+                            title={`${f.label} (${f.keys})`}
+                            aria-label={f.label}
+                            onClick={() => {
+                              const el = blockRefs.current[block.id];
+                              if (el) wrap(block, el, f.mark);
+                            }}
+                          >
+                            <f.icon size={15} aria-hidden="true" />
+                          </button>
+                        ))}
+                        <span className="format-sep" aria-hidden="true" />
+                        <button type="button" className="format-btn" title="Link to page ([[ ]])" aria-label="Link to page" onClick={() => linkSelection(block, 'page')}>
+                          <Link2 size={15} aria-hidden="true" />
+                        </button>
+                        <button type="button" className="format-btn" title="Web link" aria-label="Web link" onClick={() => linkSelection(block, 'url')}>
+                          <ExternalLink size={15} aria-hidden="true" />
                         </button>
                       </div>
                     )}
