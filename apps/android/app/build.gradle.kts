@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.ink.geometry)
     implementation(libs.ink.rendering)
     implementation(libs.ink.strokes)
+    implementation(libs.input.motionprediction)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)

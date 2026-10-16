@@ -9,6 +9,7 @@ composeBom = "2026.08.00"
 material3 = "1.5.0-alpha26"
 graphicsShapes = "1.0.1"
 ink = "1.0.0"
+motionPrediction = "1.0.0"
 coroutines = "1.10.2"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"
@@ -33,6 +34,8 @@ ink-brush = { group = "androidx.ink", name = "ink-brush", version.ref = "ink" }
 ink-geometry = { group = "androidx.ink", name = "ink-geometry", version.ref = "ink" }
 ink-rendering = { group = "androidx.ink", name = "ink-rendering", version.ref = "ink" }
 ink-strokes = { group = "androidx.ink", name = "ink-strokes", version.ref = "ink" }
+
+input-motionprediction = { group = "androidx.input", name = "input-motionprediction", version.ref = "motionPrediction" }
 
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
