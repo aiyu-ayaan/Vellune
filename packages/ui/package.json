@@ -17,7 +17,8 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "lucide-react": "^1.16.0"
+    "lucide-react": "^1.16.0",
+    "yjs": "13.6.27"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
