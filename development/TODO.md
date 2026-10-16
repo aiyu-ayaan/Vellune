@@ -196,7 +196,8 @@ Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). It
 - [x] **Comments (web + Android):** block comment threads with replies, resolve/reopen, badge on the block, open threads in the inspector; E2E-encrypted inside the page document.
 - [ ] Inline (text-range) comments, notifications.
 - [x] **Import:** several Markdown files or a whole folder (Obsidian vault); subfolders become sidebar folders.
-- [ ] **Import (rest):** Notion export, HTML, AFFiNE snapshot (where licensing and formats allow).
+- [x] Notion Markdown export (ids stripped, page links become wikilinks).
+- [ ] **Import (rest):** Notion CSV databases, HTML, AFFiNE snapshot (where licensing and formats allow).
 - [x] **Export:** page Markdown; whole workspace as a ZIP of Markdown laid out like the sidebar.
 - [x] Print / save as PDF with a print stylesheet.
 - [ ] **Export (rest):** HTML, PNG (edgeless), attachments inside the ZIP.

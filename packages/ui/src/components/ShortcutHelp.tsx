@@ -22,6 +22,7 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
       ['@', 'Mention a date or page'],
       ['#', 'Tag the page'],
       ['Tab / Shift Tab', 'Nest or un-nest a block'],
+      [`${MOD} Z / ${MOD} Shift Z`, 'Undo / redo page edits'],
       ['Shift Enter', 'Line break inside a block'],
       [`${MOD} Enter`, 'Leave a code block'],
     ],
