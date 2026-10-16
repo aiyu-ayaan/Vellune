@@ -149,6 +149,8 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
   const [focusId, setFocusId] = React.useState<string | null>(null);
   const [drop, setDrop] = React.useState<{ id: string; pos: DropPos } | null>(null);
   const [moving, setMoving] = React.useState<string | null>(null);
+  const [sel, setSel] = React.useState<Set<string>>(new Set());
+  const anchor = React.useRef<string | null>(null);
   const hoverTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
   const hoverId = React.useRef<string | null>(null);
   const treeRef = React.useRef<HTMLDivElement>(null);
@@ -176,6 +178,36 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
   walk(null, 0);
   void pages;
 
+  // Drop selected rows whose ancestor is also selected: trashing the ancestor already covers them.
+  const trashSelection = (ids: Set<string>) => {
+    const top = [...ids].filter((id) => {
+      for (let p = pages[id]?.parentId; p; p = pages[p]?.parentId) if (ids.has(p)) return false;
+      return true;
+    });
+    top.forEach((id) => store.trash(id));
+    setSel(new Set());
+  };
+
+  /** Windows-style click: Ctrl/Cmd toggles, Shift selects a range, plain click selects only this row. */
+  const select = (e: React.MouseEvent | React.KeyboardEvent, id: string) => {
+    const i = rows.findIndex((r) => r.page.id === id);
+    if (e.shiftKey && anchor.current) {
+      const a = rows.findIndex((r) => r.page.id === anchor.current);
+      if (a >= 0) {
+        const [lo, hi] = a < i ? [a, i] : [i, a];
+        const range = rows.slice(lo, hi + 1).map((r) => r.page.id);
+        setSel((prev) => new Set(e.ctrlKey || e.metaKey ? [...prev, ...range] : range));
+        return;
+      }
+    }
+    anchor.current = id;
+    setSel((prev) => {
+      const n = new Set(e.ctrlKey || e.metaKey ? prev : []);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
   const focusRow = (id: string) => {
     setFocusId(id);
     requestAnimationFrame(() => treeRef.current?.querySelector<HTMLElement>(`[data-id="${id}"]`)?.focus());
@@ -193,6 +225,9 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
   };
 
   const menuFor = (p: Page): MenuEntry[] => {
+    if (sel.size > 1 && sel.has(p.id)) {
+      return [{ label: `Move ${sel.size} items to trash`, icon: Trash2, danger: true, hint: 'Del', onSelect: () => trashSelection(sel) }];
+    }
     if (p.folder) {
       const n = store.descendants(p.id).length;
       return [
@@ -290,14 +325,35 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      setSel(new Set(rows.map((r) => r.page.id)));
+      return;
+    }
+    if (e.key === 'Escape' && sel.size) { setSel(new Set()); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && sel.size) {
+      e.preventDefault();
+      trashSelection(sel);
+      return;
+    }
     const id = (document.activeElement as HTMLElement)?.dataset?.id;
     const i = rows.findIndex((r) => r.page.id === id);
     if (i < 0) return;
     const r = rows[i];
     const hasKids = r.page.folder || store.children(r.page.id).length > 0;
     const stop = () => e.preventDefault();
-    if (e.key === 'ArrowDown') { stop(); rows[i + 1] && focusRow(rows[i + 1].page.id); }
-    else if (e.key === 'ArrowUp') { stop(); rows[i - 1] && focusRow(rows[i - 1].page.id); }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      stop();
+      const nx = rows[i + (e.key === 'ArrowDown' ? 1 : -1)];
+      if (!nx) return;
+      if (e.shiftKey) {
+        if (!anchor.current) anchor.current = r.page.id;
+        const a = rows.findIndex((x) => x.page.id === anchor.current);
+        const b = rows.findIndex((x) => x.page.id === nx.page.id);
+        setSel(new Set(rows.slice(Math.min(a, b), Math.max(a, b) + 1).map((x) => x.page.id)));
+      }
+      focusRow(nx.page.id);
+    }
     else if (e.key === 'Home') { stop(); focusRow(rows[0].page.id); }
     else if (e.key === 'End') { stop(); focusRow(rows[rows.length - 1].page.id); }
     else if (e.key === 'ArrowRight') {
@@ -310,7 +366,8 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
       else if (r.parent && rows.some((x) => x.page.id === r.parent)) focusRow(r.parent);
     } else if (e.key === 'Enter' || e.key === ' ') {
       stop();
-      r.page.folder ? setExp(r.page.id, !expanded.has(r.page.id)) : store.open(r.page.id);
+      if (e.ctrlKey || e.metaKey) select(e, r.page.id);
+      else r.page.folder ? setExp(r.page.id, !expanded.has(r.page.id)) : store.open(r.page.id);
     } else if (e.key === 'F2') { stop(); setRenaming(r.page.id); }
     else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
       stop();
@@ -325,6 +382,7 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
       <div
         ref={treeRef}
         role="tree"
+        aria-multiselectable="true"
         aria-label="Organize"
         className={`org-tree${rootDrop ? ' root-drop' : ''}`}
         onKeyDown={onKeyDown}
@@ -338,6 +396,7 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
           const cls = [
             'tree-row',
             !p.folder && docActive(p.id) ? 'active' : '',
+            sel.has(p.id) ? 'selected' : '',
             drop?.id === p.id ? `drop-${drop.pos}` : '',
             dragRef.current === p.id ? 'dragging' : '',
           ].join(' ');
@@ -348,14 +407,22 @@ const OrganizeTree: React.FC<{ renamingRef: React.MutableRefObject<(id: string) 
               data-id={p.id}
               aria-level={r.level + 1}
               aria-expanded={hasKids ? isOpen : undefined}
-              aria-selected={!p.folder && docActive(p.id)}
+              aria-selected={sel.has(p.id) || (!p.folder && docActive(p.id))}
               tabIndex={p.id === tabId ? 0 : -1}
               draggable={renaming !== p.id}
               className={cls}
               style={{ paddingLeft: 6 + r.level * 14 }}
               onFocus={(e) => e.target === e.currentTarget && setFocusId(p.id)}
-              onClick={() => (p.folder ? setExp(p.id, !isOpen) : store.open(p.id))}
-              onContextMenu={(e) => openContextMenu(e, menuFor(p))}
+              onClick={(e) => {
+                if (e.ctrlKey || e.metaKey || e.shiftKey) return select(e, p.id);
+                anchor.current = p.id;
+                setSel(new Set());
+                p.folder ? setExp(p.id, !isOpen) : store.open(p.id);
+              }}
+              onContextMenu={(e) => {
+                if (!sel.has(p.id)) setSel(new Set());
+                openContextMenu(e, menuFor(p));
+              }}
               onDragStart={(e) => {
                 dragRef.current = p.id;
                 e.dataTransfer.effectAllowed = 'move';

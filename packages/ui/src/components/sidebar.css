@@ -17,6 +17,7 @@
 .tree-row:active { background: var(--bg-pressed); }
 .tree-row.active { background: var(--bg-hover); color: var(--text-primary); font-weight: 500; }
 .tree-row:focus-visible { box-shadow: var(--focus-ring); }
+.tree-row.selected { background: var(--accent-light); color: var(--text-primary); }
 .tree-row.dragging { opacity: 0.45; }
 .tree-row > svg, .tree-icon { flex-shrink: 0; color: var(--text-muted); }
 .tree-row.active .tree-icon { color: var(--text-primary); }
