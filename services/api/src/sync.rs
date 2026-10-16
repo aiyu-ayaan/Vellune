@@ -147,10 +147,11 @@ enum ClientMsg {
 
 fn origin_allowed(headers: &HeaderMap, app_url: &str) -> bool {
     // Browsers always send Origin on WebSocket upgrades; reject cross-site pages riding the cookie.
-    match headers.get(header::ORIGIN).and_then(|o| o.to_str().ok()) {
-        None => true,
-        Some(o) => o.trim_end_matches('/') == app_url,
-    }
+    // Same-origin (Origin host == Host, e.g. 127.0.0.1 vs localhost, LAN IP) is as safe as APP_URL.
+    let Some(o) = headers.get(header::ORIGIN).and_then(|o| o.to_str().ok()) else { return true };
+    let o = o.trim_end_matches('/');
+    let host = headers.get(header::HOST).and_then(|h| h.to_str().ok());
+    o == app_url || host.is_some_and(|h| o.split_once("://").map(|(_, rest)| rest) == Some(h))
 }
 
 pub async fn ws_handler(State(st): State<Shared>, headers: HeaderMap, ws: WebSocketUpgrade) -> Response {
@@ -194,6 +195,8 @@ async fn connection(st: Shared, socket: WebSocket, user: Option<(Uuid, String)>,
     let mut beat = tokio::time::interval(HEARTBEAT);
     let mut last_seen = Instant::now();
     let mut window = (Instant::now(), 0u32);
+    // Lets the client tell "signed in" from "anonymous" (expired session, rejected Origin) instead of retrying forever.
+    send(&out, json!({ "type": "hello", "authenticated": user.is_some() })).await;
 
     loop {
         tokio::select! {
@@ -405,4 +408,26 @@ async fn handle_push(st: &Shared, out: &Out, user: Option<Uuid>, page: Uuid, op:
     };
     drop(_guard);
     send(out, json!({ "type": "ack", "page_id": page, "op_id": op, "seq": seq })).await;
+}
+
+#[cfg(test)]
+mod origin_tests {
+    use super::*;
+
+    fn h(origin: &str, host: &str) -> HeaderMap {
+        let mut m = HeaderMap::new();
+        m.insert(header::ORIGIN, origin.parse().unwrap());
+        m.insert(header::HOST, host.parse().unwrap());
+        m
+    }
+
+    #[test]
+    fn same_origin_or_app_url_only() {
+        let app = "http://localhost:3000";
+        assert!(origin_allowed(&h("http://localhost:3000", "localhost:3000"), app));
+        assert!(origin_allowed(&h("http://127.0.0.1:3000", "127.0.0.1:3000"), app));
+        assert!(origin_allowed(&h("http://192.168.1.5:3000/", "192.168.1.5:3000"), app));
+        assert!(!origin_allowed(&h("https://evil.example", "localhost:3000"), app));
+        assert!(!origin_allowed(&h("http://evil.example:3000", "127.0.0.1:3000"), app));
+    }
 }

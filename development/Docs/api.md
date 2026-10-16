@@ -119,7 +119,7 @@ Audit actions: `user.signup`, `user.login_oauth`, `admin.user_update`, `admin.us
 
 ## 5. WebSocket sync — `GET /api/v1/sync`
 
-Upgrade authenticates with the session cookie; without one the socket is anonymous and may only subscribe to public pages. JSON text frames, tagged by `type`. Full semantics in [`sync-protocol.md`](sync-protocol.md).
+Upgrade authenticates with the session cookie; without one the socket is anonymous and may only subscribe to public pages. The cookie only counts when `Origin` equals `APP_URL` or is same-origin (its host equals the `Host` header, e.g. `127.0.0.1` or a LAN IP in dev); a cross-site Origin gets an anonymous socket. The first server frame is `hello`, so a client that expected to be signed in can stop instead of retrying. JSON text frames, tagged by `type`. Full semantics in [`sync-protocol.md`](sync-protocol.md).
 
 ```ts
 // client -> server
@@ -129,6 +129,7 @@ Upgrade authenticates with the session cookie; without one the socket is anonymo
 { type: 'ping' }
 
 // server -> client
+{ type: 'hello', authenticated: boolean }              // first frame on every connection
 { type: 'updates', page_id, updates: [{ seq, payload }], cursor }
 { type: 'ack', page_id, op_id, seq }
 { type: 'presence', page_id, users: [{ id, name }] }

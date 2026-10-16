@@ -41,7 +41,8 @@ interface ServerPage {
 }
 
 export interface SyncState {
-  connection: 'off' | 'connecting' | 'online' | 'offline';
+  /** denied: the server treated the socket as anonymous (expired session or rejected Origin). */
+  connection: 'off' | 'connecting' | 'online' | 'offline' | 'denied';
   pending: number;
   roles: Record<string, Role>;
   publicPages: Record<string, boolean>;
@@ -235,7 +236,7 @@ class SyncEngine {
       this.subscribed.clear();
       this.inflight.clear();
       this.set({ presence: {} });
-      if (!this.identity) return;
+      if (!this.identity || this.state.connection === 'denied') return;
       this.set({ connection: 'offline' });
       // Exponential backoff with jitter so a server restart is not met by a reconnect storm.
       const delay = Math.min(30_000, 500 * 2 ** this.retry++) * (0.5 + Math.random());
@@ -356,6 +357,13 @@ class SyncEngine {
 
   private async onMessage(m: Record<string, any>) {
     switch (m.type) {
+      case 'hello':
+        if (!m.authenticated) {
+          console.error('[vellune] sync socket is not signed in (session expired or Origin not allowed)');
+          this.set({ connection: 'denied' });
+          this.ws?.close();
+        }
+        return;
       case 'updates': {
         const key = this.keys.get(m.page_id);
         const doc = this.docs.get(m.page_id);
