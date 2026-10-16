@@ -183,6 +183,11 @@ class SyncEngine {
     this.debounce(`persist:${id}`, PERSIST_MS, () => this.persist(id));
     const rec = this.recs.get(id);
     if (origin !== LOCAL || !rec || rec.role === 'viewer') return;
+    if (this.online && !rec.registered && this.ws?.readyState === WebSocket.OPEN && this.bridge?.pages()[id]) {
+      // A page made while online registers now; its full state becomes the first update.
+      this.registerNow(id);
+      return;
+    }
     if (!this.online || !rec.registered) {
       // Unregistered pages upload full state on registration; registered ones catch up on next connect.
       if (rec.registered && !rec.unsynced) {
@@ -369,6 +374,20 @@ class SyncEngine {
       }
     }
     for (const id of this.keys.keys()) this.subscribePage(id);
+  }
+
+  private registering = new Set<string>();
+
+  private registerNow(id: string) {
+    if (this.registering.has(id)) return;
+    this.registering.add(id);
+    this.register(id)
+      .then(() => {
+        this.set({ roles: { ...this.state.roles, [id]: 'owner' }, publicPages: { ...this.state.publicPages, [id]: false } });
+        this.subscribePage(id);
+      })
+      .catch((e) => console.warn('[vellune] registering page failed', id, e))
+      .finally(() => this.registering.delete(id));
   }
 
   private async register(id: string) {

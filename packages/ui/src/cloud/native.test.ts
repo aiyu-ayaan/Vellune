@@ -2,16 +2,18 @@
 // other's Yjs documents and E2E crypto. `WRITE_FIXTURES=1 pnpm --filter @vellune/ui test` rewrites
 // the web-side fixtures; the Rust and Kotlin tests read them.
 
+// @ts-expect-error -- no @types/node in this package; vitest runs on Node.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { b64, createKeys, derive, exportPageKey, newPageKey, seal, unb64, wrapPageKey } from './crypto';
 import { docToPage, pageToDoc } from './ydoc';
 import { Page } from '../model';
 
-const root = resolve(__dirname, '../../../..');
-const fixtures = resolve(root, 'crates/mobile/tests/fixtures');
+declare const process: { env: Record<string, string | undefined> };
+
+const root = new URL('../../../../', import.meta.url);
+const fixture = (name: string) => new URL(`crates/mobile/tests/fixtures/${name}`, root);
 const write = process.env.WRITE_FIXTURES === '1';
 
 export const contractPage: Page = {
@@ -41,17 +43,17 @@ describe('native client contract', () => {
     pageToDoc(doc, contractPage);
     const bytes = Y.encodeStateAsUpdate(doc);
     if (write) {
-      writeFileSync(resolve(fixtures, 'web_page.bin'), bytes);
-      writeFileSync(resolve(fixtures, 'web_page.json'), JSON.stringify(contractPage, null, 2));
+      writeFileSync(fixture('web_page.bin'), bytes);
+      writeFileSync(fixture('web_page.json'), JSON.stringify(contractPage, null, 2));
     }
-    expect(existsSync(resolve(fixtures, 'web_page.bin'))).toBe(true);
+    expect(existsSync(fixture('web_page.bin'))).toBe(true);
   });
 
   it('reads the document the Rust core writes', () => {
-    const file = resolve(fixtures, 'rust_page.bin');
+    const file = fixture('rust_page.bin');
     const doc = new Y.Doc();
     Y.applyUpdate(doc, new Uint8Array(readFileSync(file)));
-    expect(docToPage(doc)).toMatchObject(JSON.parse(readFileSync(resolve(fixtures, 'rust_page.json'), 'utf8')));
+    expect(docToPage(doc)).toMatchObject(JSON.parse(readFileSync(fixture('rust_page.json'), 'utf8')));
   });
 
   it('writes crypto fixtures the Kotlin client must open', async () => {
@@ -62,7 +64,7 @@ describe('native client contract', () => {
     const pageKey = await newPageKey();
     const plain = new TextEncoder().encode('sealed by the web');
     writeFileSync(
-      resolve(root, 'apps/android/app/src/test/resources/web-crypto.json'),
+      new URL('apps/android/app/src/test/resources/web-crypto.json', root),
       JSON.stringify({
         password,
         bundle,
