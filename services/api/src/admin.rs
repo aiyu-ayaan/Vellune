@@ -123,11 +123,15 @@ pub async fn delete_user(State(st): State<Shared>, AdminUser(a): AdminUser, Path
     if id == a.id {
         return Err(ApiError::invalid("You cannot delete your own account"));
     }
+    let owned: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM pages WHERE owner_id = $1").bind(id).fetch_all(&st.db).await?;
     let email: Option<String> = sqlx::query_scalar("DELETE FROM users WHERE id = $1 RETURNING email")
         .bind(id)
         .fetch_optional(&st.db)
         .await?;
     let email = email.ok_or_else(ApiError::not_found)?;
+    for page in owned {
+        crate::blobs::remove_page(&st, page).await;
+    }
     st.hub.kick(id);
     audit(&st.db, Some(&a), "admin.user_delete", Some(email)).await;
     Ok(StatusCode::NO_CONTENT)

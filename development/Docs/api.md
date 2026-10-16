@@ -72,6 +72,8 @@ Every page has its own random AES-256-GCM **page key**. The server sees page IDs
 | `DELETE /pages/{id}/members/{user_id}` | owner | – | `204`. |
 | `PUT /pages/{id}/public` | owner | `{ public: boolean }` | `204`. Public pages are readable (not writable) by anyone holding the link; the page key travels in the URL fragment (`/share/{id}#k=...`), never to the server. |
 | `GET /pages/{id}/history?after=0&limit=500` | member | – | `{ updates: [{ seq, at, user: { id, name } \| null, payload }], more }`. The encrypted update log for client-side version history (limit ≤ 1000; page with `after` = last `seq`). |
+| `POST /pages/{id}/blobs` | owner, editor | raw `application/octet-stream`: `iv[12] \|\| AES-GCM ciphertext` sealed with the page key, 28 B – 8 MiB | `{ id }`. Stored at `BLOB_DIR/{page_id}/{id}`; rate-limited to 120/min per user. |
+| `GET /pages/{id}/blobs/{blob_id}` | member, or anyone if the page is public | – | The sealed bytes (`Cache-Control: private, immutable`). Blobs are deleted with their page. |
 | `GET /users/lookup?email=` | user | – | `{ id, email, name, public_key }` or `404` (user must have signed up and set keys). |
 
 Server enforcement: only `owner`/`editor` may push updates; `viewer` and public readers are read-only. Revoking a member stops future access; they keep anything already decrypted (no key rotation yet).

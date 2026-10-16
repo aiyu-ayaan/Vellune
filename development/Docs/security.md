@@ -47,6 +47,10 @@ Server admins (`users.is_admin`, first account on a fresh server) manage account
 
 ## 3. Storage & Attachment Security
 
+**Implemented today (images):** clients downscale an image, seal it with the page key (AES-256-GCM), and upload the ciphertext to `POST /pages/{id}/blobs`. The API writes it to `BLOB_DIR/<page_id>/<blob_id>` (write-then-rename) and indexes it in the `blobs` table. The server never holds the key, so the files on disk, in backups, or in a bind-mounted folder are unreadable without the page key. Reads require page membership or a public page (whose key is only in the share link fragment). Blob files are removed when their page or owning user is deleted. Not yet: per-user quotas, orphan cleanup for images removed from a page, and S3 storage.
+
+The target design for general attachments:
+
 - **Direct-to-S3 Uploads:** Files are never routed directly through the API server memory. Clients request presigned PUT URLs with pre-enforced size limits and content-type restrictions.
 - **Orphan File Garbage Collection:** Attachments unlinked from documents are retained for a 30-day recovery window before automated deletion.
 - **Binary Content Isolation:** Attachment downloads are served from distinct CDN/storage subdomains with sandboxed `Content-Security-Policy` headers to prevent stored XSS attacks.

@@ -3,6 +3,7 @@
 
 mod admin;
 mod auth;
+mod blobs;
 mod error;
 mod oauth;
 mod pages;
@@ -12,7 +13,7 @@ mod sync;
 use std::sync::Arc;
 
 use axum::{
-    extract::Request,
+    extract::{DefaultBodyLimit, Request},
     http::Method,
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -31,6 +32,8 @@ pub struct AppState {
     pub hub: sync::Hub,
     pub http: reqwest::Client,
     pub limiter: auth::RateLimiter,
+    /// Root of the encrypted blob store (`BLOB_DIR`).
+    pub blob_dir: std::path::PathBuf,
 }
 
 pub type Shared = Arc<AppState>;
@@ -61,6 +64,8 @@ fn router(state: Shared) -> Router {
         .route("/pages/:id/members/:user_id", delete(pages::remove_member))
         .route("/pages/:id/public", put(pages::set_public))
         .route("/pages/:id/history", get(pages::history))
+        .route("/pages/:id/blobs", post(blobs::upload).layer(DefaultBodyLimit::max(blobs::MAX_BLOB_BYTES)))
+        .route("/pages/:id/blobs/:blob", get(blobs::download))
         .route("/users/lookup", get(pages::lookup))
         .route("/admin/stats", get(admin::stats))
         .route("/admin/users", get(admin::users))
@@ -125,6 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         hub: sync::Hub::default(),
         http: reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)).build()?,
         limiter: auth::RateLimiter::default(),
+        blob_dir: blobs::blob_dir(),
     });
 
     let host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".into());

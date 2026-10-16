@@ -96,6 +96,7 @@ pub async fn create(State(st): State<Shared>, user: AuthUser, Json(r): Json<Crea
 pub async fn delete(State(st): State<Shared>, user: AuthUser, Path(id): Path<Uuid>) -> ApiResult<StatusCode> {
     require_owner(&st.db, id, &user).await?;
     sqlx::query("DELETE FROM pages WHERE id = $1").bind(id).execute(&st.db).await?;
+    crate::blobs::remove_page(&st, id).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
