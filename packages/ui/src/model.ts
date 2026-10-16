@@ -38,6 +38,8 @@ export interface Stroke {
   points: number[];
   color: string;
   width: number;
+  /** 'pen' | 'pencil' | 'highlighter', set by native clients; missing draws as a pen. */
+  tool?: string;
 }
 
 export interface Page {

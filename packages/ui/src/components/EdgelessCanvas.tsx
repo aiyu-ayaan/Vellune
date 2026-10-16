@@ -5,6 +5,24 @@ import { store, useStore } from '../store';
 
 type Tool = 'select' | 'sticky' | 'pen' | 'embed';
 
+/** The SVG ink layer spans ±INK_SPAN around the origin; paths are shifted back by it. */
+const INK_SPAN = 5000;
+const NOTE_ID = 'note';
+
+/**
+ * Same rule as the Android client (Brushes.displayColor): neutral dark ink shows light on a dark
+ * page, and highlighters are see-through.
+ */
+function inkColor(hex: string, dark: boolean): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!dark || !m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const sat = max === 0 ? 0 : (max - min) / max;
+  return sat < 0.15 && max / 255 < 0.35 ? '#e6e1e9' : hex;
+}
+
 export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
   const { pages } = useStore((s) => s);
   const [tool, setTool] = useState<Tool>('select');
@@ -21,6 +39,22 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const dark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark';
+
+  // Without a placed note card the page's document still shows on its canvas, as on Android.
+  const hasContent = !!page.title.trim() || page.blocks.some((b) => b.text.trim());
+  const items: CanvasItem[] =
+    page.canvas.items.some((i) => i.type === 'note') || !hasContent
+      ? page.canvas.items
+      : [{ id: NOTE_ID, type: 'note', x: 0, y: 0, w: 460, h: 0 }, ...page.canvas.items];
+
+  /** Dragging the implicit note card places it for real first. */
+  const startDrag = (item: CanvasItem) => {
+    if (item.id === NOTE_ID && !page.canvas.items.some((i) => i.id === NOTE_ID)) {
+      store.updatePage(page.id, (p) => ({ ...p, canvas: { ...p.canvas, items: [{ ...item, h: 300 }, ...p.canvas.items] } }));
+    }
+    setDraggedItemId(item.id);
+  };
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -150,38 +184,41 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
         <svg
           style={{
             position: 'absolute',
-            top: -5000,
-            left: -5000,
-            width: 10000,
-            height: 10000,
+            top: -INK_SPAN,
+            left: -INK_SPAN,
+            width: INK_SPAN * 2,
+            height: INK_SPAN * 2,
             pointerEvents: 'none',
           }}
         >
-          {page.canvas.strokes.map((s) => (
-            <path
-              key={s.id}
-              d={pointsToSvgPath(s.points)}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={s.width}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))}
-          {currentStroke && (
-            <path
-              d={pointsToSvgPath(currentStroke.points)}
-              fill="none"
-              stroke={currentStroke.color}
-              strokeWidth={currentStroke.width}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
+          <g transform={`translate(${INK_SPAN} ${INK_SPAN})`}>
+            {page.canvas.strokes.map((s) => (
+              <path
+                key={s.id}
+                d={pointsToSvgPath(s.points)}
+                fill="none"
+                stroke={inkColor(s.color, dark)}
+                strokeOpacity={s.tool === 'highlighter' ? 0.4 : 1}
+                strokeWidth={s.width}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
+            {currentStroke && (
+              <path
+                d={pointsToSvgPath(currentStroke.points)}
+                fill="none"
+                stroke={inkColor(currentStroke.color, dark)}
+                strokeWidth={currentStroke.width}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+          </g>
         </svg>
 
         {/* Canvas Items (Document Note, Sticky Notes, Embedded Pages) */}
-        {page.canvas.items.map((item) => {
+        {items.map((item) => {
           if (item.type === 'note') {
             return (
               <div
@@ -194,7 +231,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
-                  setDraggedItemId(item.id);
+                  startDrag(item);
                   const rect = containerRef.current?.getBoundingClientRect();
                   if (!rect) return;
                   const canvasX = (e.clientX - rect.left - pan.x) / zoom;
@@ -232,7 +269,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
-                  setDraggedItemId(item.id);
+                  startDrag(item);
                   const rect = containerRef.current?.getBoundingClientRect();
                   if (!rect) return;
                   const canvasX = (e.clientX - rect.left - pan.x) / zoom;
@@ -281,7 +318,7 @@ export const EdgelessCanvas: React.FC<{ page: Page }> = ({ page }) => {
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
-                  setDraggedItemId(item.id);
+                  startDrag(item);
                   const rect = containerRef.current?.getBoundingClientRect();
                   if (!rect) return;
                   const canvasX = (e.clientX - rect.left - pan.x) / zoom;
