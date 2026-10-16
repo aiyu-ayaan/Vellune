@@ -186,6 +186,9 @@ private fun findTrigger(text: String, caret: Int): Suggest? {
     return null
 }
 
+/** A block that is only `![[Page]]` (Obsidian embed). */
+private val EMBED = Regex("""!\[\[([^\]|#]+)(?:[#|][^\]]*)?]]""")
+
 private fun Block.continues() = kind in setOf("bullet", "numbered", "todo", "toggle")
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -420,6 +423,8 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                         comments = page.comments.firstOrNull { it.blockId == b.id && it.parentId == null && it.resolved != true }
                             ?.let { page.comments.count { c -> c.blockId == b.id } } ?: 0,
                         onComments = { commentFor = b.id },
+                        embedName = if (b.kind == "paragraph") EMBED.matchEntire(b.text.trim())?.groupValues?.get(1)?.trim() else null,
+                        resolve = { index.resolve(it)?.takeIf { p -> p.id != page.id } },
                         onFold = { folded = if (b.id in folded) folded - b.id else folded + b.id },
                         focused = focused == b.id, inline = inline, requester = requester(b.id), pageId = page.id, app = app,
                         onFocus = { has -> if (has) focused = b.id else if (focused == b.id) { focused = null; suggest = null } },
@@ -550,6 +555,8 @@ private fun BlockRow(
     onFold: () -> Unit,
     comments: Int,
     onComments: () -> Unit,
+    embedName: String?,
+    resolve: (String) -> Page?,
     focused: Boolean,
     inline: InlineColors,
     requester: FocusRequester,
@@ -581,6 +588,10 @@ private fun BlockRow(
     }
     if (b.kind == "file") {
         FileBlock(app, pageId, b, onDeleteBlock)
+        return
+    }
+    if (embedName != null && !focused) {
+        EmbedCard(embedName, resolve(embedName), onOpen = { onLink(embedName) }, onEdit = { onTapText(b.text.length) })
         return
     }
     val style: TextStyle = when (b.kind) {
