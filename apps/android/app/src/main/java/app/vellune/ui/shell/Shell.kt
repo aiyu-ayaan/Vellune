@@ -2,6 +2,14 @@ package app.vellune.ui.shell
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalFocusManager
+import app.vellune.ui.page.PageInfoPanel
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -9,21 +17,10 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Surface
-import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,8 +43,8 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 
 /**
- * The workspace frame: the web's sidebar + main area. Wide windows (tablets, desktop mode) keep the
- * sidebar docked like the web; narrower ones slide it in as a modal drawer.
+ * The workspace frame. Phones and small tablets get Discord's overlapping panels: the page slides
+ * right over the sidebar or left over the page info. Wide windows dock both beside the page.
  */
 @Composable
 fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (Boolean) -> Unit) {
@@ -56,6 +53,7 @@ fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (B
     val session by app.session.state.collectAsStateWithLifecycle()
     val sync by app.sync.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val focus = LocalFocusManager.current
     val index = remember(pages) { buildIndex(pages.values) }
     val tags = remember(index) { index.tags.keys.sorted() }
     var expanded by remember {
@@ -63,21 +61,27 @@ fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (B
     }
     var renaming by remember { mutableStateOf<Page?>(null) }
     var moving by remember { mutableStateOf<Page?>(null) }
+    var infoDocked by remember { mutableStateOf(app.db.kv("info_panel") == "1") }
+    val panels = remember { PanelsState() }
+    val page = (nav.current as? Dest.Doc)?.let { pages[it.id] }
 
     LaunchedEffect(pages) { nav.prune(pages) }
-    BackHandler(nav.stack.size > 1) { nav.back() }
+    // A panel coming in puts the keyboard away, as Discord does.
+    LaunchedEffect(panels.target) { if (panels.target != Panel.Closed) focus.clearFocus() }
+    BackHandler(nav.stack.size > 1 && panels.target == Panel.Closed) { nav.back() }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 840.dp
-        val drawer = rememberDrawerState(DrawerValue.Closed)
+        val closePanels = { if (!wide) scope.launch { panels.close() } }
         val actions = SidebarActions(
-            navigate = { d -> nav.navigate(d); scope.launch { drawer.close() } },
-            search = { nav.searchOpen = true; scope.launch { drawer.close() } },
+            navigate = { d -> nav.navigate(d); closePanels() },
+            search = { nav.searchOpen = true; closePanels() },
             newDoc = { parent ->
                 nav.newDoc(parent)
                 if (parent != null) expanded = expanded + parent
-                scope.launch { drawer.close() }
+                closePanels()
             },
+            newCanvas = { nav.newDoc(edgeless = true); closePanels() },
             newFolder = { parent ->
                 val f = ws.createFolder(parentId = parent)
                 if (parent != null) expanded = expanded + parent
@@ -96,38 +100,56 @@ fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (B
             signIn = { app.session.showLogin() },
             toggleDynamicColor = { onDynamicColor(!dynamicColor) },
         )
-        val sidebar = @Composable { m: Modifier ->
+        val sidebar = @Composable {
             Sidebar(
                 ws, pages, nav.current, session, sync, tags, expanded,
                 onExpand = { id, open ->
                     expanded = if (open) expanded + id else expanded - id
                     app.db.setKv("expanded", JSONArray(expanded.toList()).toString())
                 },
-                dynamicColor = dynamicColor, a = actions, modifier = m,
+                dynamicColor = dynamicColor, a = actions,
             )
         }
-        val content = @Composable {
-            Content(app, nav, pages, index, sync, onMenu = if (wide) null else ({ scope.launch { drawer.open() } }))
+        val info = page?.takeUnless { it.isFolder }?.let { p ->
+            @Composable { PageInfoPanel(p, index, pages, nav, onDone = { closePanels() }) }
         }
+        val onInfo = {
+            if (wide) {
+                infoDocked = !infoDocked
+                app.db.setKv("info_panel", if (infoDocked) "1" else null)
+            } else scope.launch { panels.open(Panel.End) }
+            Unit
+        }
+
         if (wide) {
-            Row(Modifier.fillMaxSize()) {
-                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.width(296.dp).fillMaxHeight()) {
-                    sidebar(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start)))
+            val docked = infoDocked && info != null
+            val card = RoundedCornerShape(
+                topStart = 28.dp, bottomStart = 28.dp,
+                topEnd = if (docked) 28.dp else 0.dp, bottomEnd = if (docked) 28.dp else 0.dp,
+            )
+            Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLow)) {
+                Box(Modifier.width(344.dp).fillMaxHeight()) { sidebar() }
+                Box(Modifier.weight(1f).fillMaxHeight().clip(card).background(MaterialTheme.colorScheme.surface)) {
+                    Content(app, nav, pages, index, sync, onMenu = null, onInfo = onInfo)
                 }
-                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Box(Modifier.weight(1f)) { content() }
+                AnimatedVisibility(
+                    docked,
+                    enter = expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(),
+                    exit = shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut(),
+                ) {
+                    Box(Modifier.width(340.dp).fillMaxHeight()) { info?.invoke() }
+                }
             }
         } else {
-            ModalNavigationDrawer(
-                drawerState = drawer,
-                // Edge swipe would fight the pen on a canvas; the menu button opens it there.
-                gesturesEnabled = drawer.isOpen || (nav.current as? Dest.Doc)?.let { pages[it.id]?.isEdgeless } != true,
-                drawerContent = {
-                    ModalDrawerSheet(drawerState = drawer, drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
-                        sidebar(Modifier)
-                    }
-                },
-            ) { content() }
+            OverlappingPanels(
+                state = panels,
+                start = sidebar,
+                end = info,
+                // A canvas belongs to the pen; its menu button still opens the sidebar.
+                gesturesEnabled = page?.isEdgeless != true,
+            ) {
+                Content(app, nav, pages, index, sync, onMenu = { scope.launch { panels.open(Panel.Start) } }, onInfo = onInfo)
+            }
         }
     }
 
@@ -147,6 +169,7 @@ private fun Content(
     index: app.vellune.core.LinkIndex,
     sync: app.vellune.core.SyncState,
     onMenu: (() -> Unit)?,
+    onInfo: () -> Unit,
 ) {
     val motion = MaterialTheme.motionScheme
     AnimatedContent(
@@ -160,7 +183,7 @@ private fun Content(
     ) { d ->
         when (d) {
             Dest.Home -> HomeScreen(app.workspace, pages, nav, onMenu)
-            is Dest.Doc -> pages[d.id]?.let { PageScreen(app, nav, it, index, sync, onMenu) } ?: HomeScreen(app.workspace, pages, nav, onMenu)
+            is Dest.Doc -> pages[d.id]?.let { PageScreen(app, nav, it, index, sync, onMenu, onInfo) } ?: HomeScreen(app.workspace, pages, nav, onMenu)
             Dest.Graph -> GraphScreen(pages, index, nav, onMenu)
             is Dest.Database -> DatabaseScreen(app.workspace, pages, index, d.tag, nav, onMenu)
             Dest.Trash -> TrashScreen(app.workspace, pages, onMenu)

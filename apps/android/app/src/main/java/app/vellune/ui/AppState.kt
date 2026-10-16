@@ -27,6 +27,8 @@ class AppState(private val ws: Workspace, private val db: LocalDb) {
     var searchOpen by mutableStateOf(false)
     /** Bumped by the page top bar's "Embed page" action; the canvas opens its picker. */
     var embedRequest by mutableIntStateOf(0)
+    /** A block the page outline asked the editor to scroll to. */
+    var jumpTo by mutableStateOf<String?>(null)
 
     fun navigate(d: Dest) {
         if (d == current) return

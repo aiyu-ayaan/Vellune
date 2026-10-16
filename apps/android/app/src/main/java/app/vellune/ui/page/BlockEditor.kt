@@ -214,6 +214,12 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
         focusTarget = null
     }
 
+    LaunchedEffect(nav.jumpTo) {
+        val i = blocks.indexOfFirst { it.id == nav.jumpTo }
+        if (i >= 0) list.animateScrollToItem(i + 1)
+        nav.jumpTo = null
+    }
+
     fun split(b: Block, before: String, afterLines: List<String>) {
         if (afterLines.size == 1 && before.isEmpty() && afterLines[0].isEmpty() && b.continues()) {
             // Enter on an empty list item leaves the list.
@@ -639,6 +645,7 @@ private fun InfoSection(app: Vellune, nav: AppState, page: Page, index: LinkInde
     val turn by animateFloatAsState(if (open) 90f else 0f, label = "info")
     val ws = app.workspace
     val backlinks = index.backlinks[page.id].orEmpty()
+    val ctx = LocalContext.current
     Column(Modifier.padding(top = 12.dp)) {
         Row(
             Modifier.clickable { open = !open }.padding(vertical = 6.dp),
@@ -684,8 +691,8 @@ private fun InfoSection(app: Vellune, nav: AppState, page: Page, index: LinkInde
                         }
                     }
                 }
-                Prop("Created") { Text(DateUtils.formatDateTime(null, page.createdAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME), style = MaterialTheme.typography.bodyMedium) }
-                Prop("Updated") { Text(DateUtils.formatDateTime(null, page.updatedAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME), style = MaterialTheme.typography.bodyMedium) }
+                Prop("Created") { Text(DateUtils.formatDateTime(ctx, page.createdAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME), style = MaterialTheme.typography.bodyMedium) }
+                Prop("Updated") { Text(DateUtils.formatDateTime(ctx, page.updatedAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME), style = MaterialTheme.typography.bodyMedium) }
                 val words = remember(page.blocks) { page.blocks.sumOf { b -> b.text.split(Regex("\\s+")).count { it.isNotBlank() } } }
                 Prop("Backlinks") { Text("${backlinks.size} · $words words", style = MaterialTheme.typography.bodyMedium) }
             }

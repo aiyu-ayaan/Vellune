@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarOutline
@@ -29,7 +30,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -58,7 +58,7 @@ import app.vellune.ui.shell.VTopBar
 
 /** A page: the web's TopBar (path, doc/edgeless switch, favorite, presence, menu) over the doc or its canvas. */
 @Composable
-fun PageScreen(app: Vellune, nav: AppState, page: Page, index: LinkIndex, sync: SyncState, onMenu: (() -> Unit)?) {
+fun PageScreen(app: Vellune, nav: AppState, page: Page, index: LinkIndex, sync: SyncState, onMenu: (() -> Unit)?, onInfo: () -> Unit) {
     val ws = app.workspace
     val haptic = LocalHapticFeedback.current
     var menu by remember { mutableStateOf(false) }
@@ -97,14 +97,15 @@ fun PageScreen(app: Vellune, nav: AppState, page: Page, index: LinkIndex, sync: 
                             contentPadding = ToggleButtonDefaults.ContentPadding,
                         ) { Icon(Icons.Outlined.Dashboard, "Edgeless mode", Modifier.size(18.dp)) }
                     }
-                    IconToggleButton(page.favorite, { ws.setFavorite(page.id, it) }) {
-                        Icon(if (page.favorite) Icons.Outlined.Star else Icons.Outlined.StarOutline,
-                            if (page.favorite) "Remove from favorites" else "Add to favorites",
-                            tint = if (page.favorite) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    IconButton(onClick = onInfo) { Icon(Icons.Outlined.Info, "Page info") }
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "More") }
                         DropdownMenu(menu, { menu = false }, shape = MaterialTheme.shapes.large) {
+                            DropdownMenuItem(
+                                { Text(if (page.favorite) "Remove from favorites" else "Add to favorites") },
+                                { menu = false; ws.setFavorite(page.id, !page.favorite) },
+                                leadingIcon = { Icon(if (page.favorite) Icons.Outlined.Star else Icons.Outlined.StarOutline, null) },
+                            )
                             if (page.isEdgeless) DropdownMenuItem({ Text("Embed a page") }, { menu = false; nav.embedRequest++ },
                                 leadingIcon = { Icon(Icons.Outlined.Web, null) })
                             DropdownMenuItem({ Text("Duplicate") }, { menu = false; ws.duplicate(page.id)?.let { nav.open(it.id) } },
