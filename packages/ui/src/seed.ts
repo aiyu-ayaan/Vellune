@@ -2,6 +2,10 @@ import { Page, newBlock as b, newPage, newId } from './model';
 
 /** First-run workspace showing how the features connect. */
 export function seedPages(): Page[] {
+  return starterPages().map((p) => ({ ...p, seeded: true }));
+}
+
+function starterPages(): Page[] {
   const welcome = newPage('Welcome to Vellune', {
     favorite: true,
     tags: ['guide'],

@@ -2,7 +2,7 @@
 // batched and never depend on the network.
 
 import { useSyncExternalStore } from 'react';
-import { Page, newBlock, newPage, todayKey } from './model';
+import { Page, newBlock, newId, newPage, todayKey } from './model';
 import { seedPages } from './seed';
 import { sync } from './cloud/sync';
 import { session } from './cloud/session';
@@ -101,13 +101,14 @@ class Store {
 
   private markDirty(id: string) {
     this.dirty.add(id);
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(this.flush, SAVE_DELAY_MS);
+    // Throttle, not debounce: a steady stream of edits or remote updates must not postpone the save forever.
+    this.timer ??= setTimeout(this.flush, SAVE_DELAY_MS);
   }
 
   flush = () => {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
+    sync.flush();
     if (!this.db || this.dirty.size === 0) return;
     const ids = [...this.dirty];
     this.dirty.clear();
@@ -144,6 +145,7 @@ class Store {
     const old = this.state.pages[id];
     if (!old) return;
     const next = { ...fn(old), updatedAt: Date.now() };
+    delete next.seeded;
     if (next.blocks.length === 0) next.blocks = [newBlock()];
     this.set({ pages: { ...this.state.pages, [id]: next } });
     this.markDirty(id);
@@ -153,7 +155,9 @@ class Store {
   /** A merged remote version of a page arrived; render and cache it without echoing it back. */
   applyRemote = (page: Page) => {
     page = { ...page, favorite: this.state.pages[page.id]?.favorite ?? false };
-    this.set({ pages: { ...this.state.pages, [page.id]: page } });
+    // A fresh device may have dropped its starter pages; show the first synced page instead of nothing.
+    const activeId = this.state.activeId && this.state.pages[this.state.activeId] ? this.state.activeId : page.deletedAt ? null : page.id;
+    this.set({ pages: { ...this.state.pages, [page.id]: page }, activeId });
     this.markDirty(page.id);
   };
 
@@ -199,21 +203,100 @@ class Store {
     else this.createPage(key, { journal: key, tags: ['journal'] });
   };
 
+  /** Ids of every page below `id` in the folder/doc tree. */
+  descendants = (id: string): string[] => {
+    const out: string[] = [];
+    const walk = (pid: string) => {
+      for (const p of Object.values(this.state.pages)) if (p.parentId === pid && !out.includes(p.id)) {
+        out.push(p.id);
+        walk(p.id);
+      }
+    };
+    walk(id);
+    return out;
+  };
+
+  /** Children of `parentId` (null = root) in display order: manual order, then folders first, then title. */
+  children = (parentId: string | null, includeDeleted = false): Page[] => {
+    const pages = this.state.pages;
+    const atRoot = (p: Page) => !p.parentId || !pages[p.parentId] || (!includeDeleted && !!pages[p.parentId].deletedAt);
+    return Object.values(pages)
+      .filter((p) => (includeDeleted || !p.deletedAt) && (parentId === null ? atRoot(p) : p.parentId === parentId))
+      .sort(
+        (a, b) =>
+          (a.order ?? Infinity) - (b.order ?? Infinity) ||
+          Number(!!b.folder) - Number(!!a.folder) ||
+          (a.title || 'Untitled').localeCompare(b.title || 'Untitled'),
+      );
+  };
+
+  createFolder = (title = 'New folder', parentId?: string): Page =>
+    this.createPage(title, { folder: true, parentId, blocks: [] }, false);
+
+  /**
+   * Move `id` into `parentId` (null = root), before sibling `beforeId` (or last).
+   * Refuses to move a folder into itself or its own subtree.
+   */
+  move = (id: string, parentId: string | null, beforeId?: string | null) => {
+    if (id === parentId || (parentId && this.descendants(id).includes(parentId))) return false;
+    const siblings = this.children(parentId).filter((p) => p.id !== id);
+    const at = beforeId ? siblings.findIndex((p) => p.id === beforeId) : -1;
+    const idx = at < 0 ? siblings.length : at;
+    // Give siblings explicit positions once, so a manual move is stable on every device.
+    siblings.forEach((p, i) => {
+      const want = i < idx ? i : i + 1;
+      if (p.order !== want) this.updatePage(p.id, (x) => ({ ...x, order: want }));
+    });
+    this.updatePage(id, (p) => ({ ...p, parentId: parentId ?? undefined, order: idx }));
+    return true;
+  };
+
   trash = (id: string) => {
-    this.updatePage(id, (p) => ({ ...p, deletedAt: Date.now(), favorite: false }));
-    if (this.state.activeId === id) {
-      const next = Object.values(this.state.pages).find((p) => !p.deletedAt);
+    const now = Date.now();
+    for (const pid of [id, ...this.descendants(id)]) {
+      if (!this.state.pages[pid]?.deletedAt) this.updatePage(pid, (p) => ({ ...p, deletedAt: now, favorite: false }));
+    }
+    if (this.state.activeId && this.state.pages[this.state.activeId]?.deletedAt) {
+      const next = Object.values(this.state.pages).find((p) => !p.deletedAt && !p.folder);
       this.set({ activeId: next?.id ?? null });
     }
   };
 
-  restore = (id: string) => this.updatePage(id, (p) => ({ ...p, deletedAt: undefined }));
+  /** Restores the page, everything trashed with it below it, and any trashed ancestors it needs. */
+  restore = (id: string) => {
+    const when = this.state.pages[id]?.deletedAt;
+    for (const pid of this.descendants(id)) if (when && this.state.pages[pid]?.deletedAt === when) this.updatePage(pid, (p) => ({ ...p, deletedAt: undefined }));
+    for (let p: Page | undefined = this.state.pages[id]; p; p = p.parentId ? this.state.pages[p.parentId] : undefined) {
+      if (p.deletedAt) this.updatePage(p.id, (x) => ({ ...x, deletedAt: undefined }));
+    }
+  };
 
   purge = (id: string) => {
     const { [id]: _gone, ...rest } = this.state.pages;
     this.set({ pages: rest });
     this.markDirty(id);
     void sync.deleteRemote(id);
+  };
+
+  /** Copy a doc (fresh page and block ids) right after the original, same parent. */
+  duplicate = (id: string): Page | null => {
+    const src = this.state.pages[id];
+    if (!src || src.folder) return null;
+    const sibs = this.children(src.parentId && this.state.pages[src.parentId] ? src.parentId : null);
+    const next = sibs[sibs.findIndex((p) => p.id === id) + 1];
+    const copy = this.createPage(
+      `Copy of ${src.title || 'Untitled'}`,
+      {
+        blocks: src.blocks.map((b) => ({ ...b, id: newId() })),
+        tags: [...src.tags],
+        canvas: structuredClone(src.canvas),
+        extraFrontmatter: src.extraFrontmatter,
+        parentId: src.parentId,
+      },
+      false,
+    );
+    this.move(copy.id, src.parentId && this.state.pages[src.parentId] ? src.parentId : null, next?.id);
+    return this.state.pages[copy.id];
   };
 }
 

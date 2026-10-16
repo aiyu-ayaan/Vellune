@@ -53,6 +53,14 @@ export interface Page {
   createdAt: number;
   updatedAt: number;
   deletedAt?: number;
+  /** Containing folder or parent doc; missing/unknown parent means the page sits at the root. */
+  parentId?: string;
+  /** A folder in the sidebar tree: holds docs and folders, has no content of its own. */
+  folder?: boolean;
+  /** Manual sort position among siblings (ascending); unset sorts after ordered siblings. */
+  order?: number;
+  /** Starter page nobody has edited yet; device-local, never synced. */
+  seeded?: boolean;
 }
 
 export const newId = (): string => crypto.randomUUID();

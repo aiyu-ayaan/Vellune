@@ -19,7 +19,8 @@ export interface LinkIndex {
 const norm = (s: string) => s.trim().toLowerCase();
 
 export function buildIndex(allPages: Page[]): LinkIndex {
-  const pages = allPages.filter((p) => !p.deletedAt);
+  // Folders are sidebar structure, not notes: never link targets or graph nodes.
+  const pages = allPages.filter((p) => !p.deletedAt && !p.folder);
   // Titles win over aliases; first page wins on duplicates.
   const titles = new Map<string, Page>();
   const aliases = new Map<string, Page>();

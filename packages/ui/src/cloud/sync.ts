@@ -40,6 +40,34 @@ interface ServerPage {
   public: boolean;
 }
 
+/** Where a collaborator's caret is: block id plus selection offsets within that block's text. */
+export interface CursorPos {
+  blockId: string;
+  anchor: number;
+  head: number;
+}
+
+/** Wire/storage form: Yjs relative positions survive concurrent edits, unlike plain offsets. */
+interface RelCursor {
+  blockId: string;
+  anchor: unknown;
+  head: unknown;
+}
+
+export interface RemoteCursor {
+  blockId: string;
+  anchor: unknown;
+  head: unknown;
+  conn: number;
+  userId: string;
+  name: string;
+  color: string;
+  at: number;
+}
+
+const CURSOR_COLORS = ['#e03e3e', '#d9730d', '#0f7b6c', '#0b6e99', '#6940a5', '#ad1a72', '#2f9e44', '#c2410c'];
+export const colorFor = (id: string) => CURSOR_COLORS[[...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % CURSOR_COLORS.length];
+
 export interface SyncState {
   /** denied: the server treated the socket as anonymous (expired session or rejected Origin). */
   connection: 'off' | 'connecting' | 'online' | 'offline' | 'denied';
@@ -47,6 +75,8 @@ export interface SyncState {
   roles: Record<string, Role>;
   publicPages: Record<string, boolean>;
   presence: Record<string, PresenceUser[]>;
+  /** pageId -> connection -> collaborator cursor (ephemeral, E2E-encrypted on the wire). */
+  cursors: Record<string, Record<number, RemoteCursor>>;
 }
 
 /** Hooks into the page store, set by store.ts to avoid an import cycle. */
@@ -60,11 +90,14 @@ const REMOTE = Symbol('remote');
 const COALESCE_MS = 250;
 const PERSIST_MS = 400;
 const PING_MS = 25_000;
+const CURSOR_MS = 60;
 
 export const wsUrl = () => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/v1/sync`;
 
 class SyncEngine {
-  private state: SyncState = { connection: 'off', pending: 0, roles: {}, publicPages: {}, presence: {} };
+  private state: SyncState = { connection: 'off', pending: 0, roles: {}, publicPages: {}, presence: {}, cursors: {} };
+  private myCursor = new Map<string, CursorPos | null>();
+  private cursorTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
   private bridge: StoreBridge | null = null;
   private docs = new Map<string, Y.Doc>();
@@ -105,7 +138,14 @@ class SyncEngine {
       ]);
       recs.forEach((r) => this.recs.set(r.id, r));
       ops.forEach((o) => this.pending.set(o.opId, o));
-      for (const page of Object.values(bridge.pages())) this.localChange(page);
+      for (const page of Object.values(bridge.pages())) {
+        // The Y.Doc and the page cache are saved separately; after a crash or quick reload either can be
+        // behind. Never let a stale cache overwrite newer synced state: the newer copy wins.
+        const rec = this.recs.get(page.id);
+        const synced = rec?.state.length ? docToPage(this.doc(page.id)) : null;
+        if (synced && synced.updatedAt > page.updatedAt) bridge.applyRemote(synced);
+        else this.localChange(page);
+      }
       // Docs known only to the sync DB (e.g. shared pages before their first render) still load.
       for (const r of recs) if (!this.docs.has(r.id)) this.doc(r.id);
       this.set({ pending: this.pending.size, roles: Object.fromEntries(recs.filter((r) => r.role).map((r) => [r.id, r.role!])) });
@@ -170,6 +210,16 @@ class SyncEngine {
     void this.send(op);
   }
 
+  /** Write every pending Y.Doc save now (page hide / unload). */
+  flush() {
+    for (const [key, t] of this.timers) {
+      if (!key.startsWith('persist:')) continue;
+      clearTimeout(t);
+      this.timers.delete(key);
+      this.persist(key.slice('persist:'.length));
+    }
+  }
+
   private persist(id: string) {
     const doc = this.docs.get(id);
     const rec = this.recs.get(id);
@@ -195,7 +245,7 @@ class SyncEngine {
     this.keys.clear();
     this.subscribed.clear();
     this.inflight.clear();
-    this.set({ connection: 'off', presence: {} });
+    this.set({ connection: 'off', presence: {}, cursors: {} });
   }
 
   /** Forget everything synced on this device (logout). */
@@ -235,7 +285,7 @@ class SyncEngine {
       this.ws = null;
       this.subscribed.clear();
       this.inflight.clear();
-      this.set({ presence: {} });
+      this.set({ presence: {}, cursors: {} });
       if (!this.identity || this.state.connection === 'denied') return;
       this.set({ connection: 'offline' });
       // Exponential backoff with jitter so a server restart is not met by a reconnect storm.
@@ -288,6 +338,15 @@ class SyncEngine {
         this.bridge.removeLocal(rec.id);
       }
     }
+    // Untouched starter pages only seed an account's first device; later devices would duplicate them.
+    if (rows.some((r) => r.role === 'owner')) {
+      for (const rec of [...this.recs.values()]) {
+        if (!rec.registered && this.bridge.pages()[rec.id]?.seeded) {
+          this.forget(rec.id);
+          this.bridge.removeLocal(rec.id);
+        }
+      }
+    }
     for (const rec of [...this.recs.values()]) {
       if (!rec.registered && this.bridge.pages()[rec.id]) {
         try {
@@ -337,6 +396,7 @@ class SyncEngine {
   private subscribePage(id: string) {
     if (this.subscribed.has(id) || !this.wsSend({ type: 'subscribe', page_id: id, after: this.recs.get(id)?.cursor ?? 0 })) return;
     this.subscribed.add(id);
+    this.sent.delete(id);
     for (const op of this.pending.values()) if (op.pageId === id) void this.send(op);
   }
 
@@ -388,9 +448,29 @@ class SyncEngine {
       case 'ack':
         this.dropPending(m.op_id);
         return;
-      case 'presence':
-        this.set({ presence: { ...this.state.presence, [m.page_id]: m.users } });
+      case 'presence': {
+        const live = new Set<number>(m.conns ?? []);
+        const kept = Object.fromEntries(Object.entries(this.state.cursors[m.page_id] ?? {}).filter(([c]) => live.has(Number(c))));
+        this.set({ presence: { ...this.state.presence, [m.page_id]: m.users }, cursors: { ...this.state.cursors, [m.page_id]: kept } });
+        // Someone joined: tell them where we are without waiting for our next keystroke.
+        if (this.myCursor.get(m.page_id)) void this.sendCursor(m.page_id, true);
         return;
+      }
+      case 'awareness': {
+        const key = this.keys.get(m.page_id);
+        if (!key) return;
+        let pos: RelCursor | null = null;
+        try {
+          pos = JSON.parse(new TextDecoder().decode(await open(key, unb64(m.payload))));
+        } catch {
+          return;
+        }
+        const page = { ...(this.state.cursors[m.page_id] ?? {}) };
+        if (!pos || typeof pos.blockId !== 'string') delete page[m.conn];
+        else page[m.conn] = { blockId: pos.blockId, anchor: pos.anchor, head: pos.head, conn: m.conn, userId: m.user.id, name: m.user.name, color: colorFor(m.user.id), at: Date.now() };
+        this.set({ cursors: { ...this.state.cursors, [m.page_id]: page } });
+        return;
+      }
       case 'error':
         if (m.op_id && m.code === 'invalid') {
           // Cannot succeed on retry (e.g. larger than the server's max_update_bytes).
@@ -403,6 +483,58 @@ class SyncEngine {
         if (m.page_id && m.code === 'forbidden' && !m.op_id) this.subscribed.delete(m.page_id);
         return;
     }
+  }
+
+  // ---------- cursors ----------
+
+  /** Publish this tab's caret on a page (null when the editor loses focus). Throttled; never stored. */
+  setCursor(pageId: string, pos: CursorPos | null) {
+    const prev = this.myCursor.get(pageId);
+    if (prev === pos || (prev && pos && prev.blockId === pos.blockId && prev.anchor === pos.anchor && prev.head === pos.head)) return;
+    this.myCursor.set(pageId, pos);
+    if (this.cursorTimer) return;
+    this.cursorTimer = setTimeout(() => {
+      this.cursorTimer = null;
+      for (const id of this.myCursor.keys()) void this.sendCursor(id);
+    }, CURSOR_MS);
+  }
+
+  private sent = new Map<string, string>();
+  private async sendCursor(pageId: string, force = false) {
+    const key = this.keys.get(pageId);
+    if (!key || !this.subscribed.has(pageId)) return;
+    const pos = this.myCursor.get(pageId);
+    const text = pos && this.blockText(pageId, pos.blockId);
+    const rel = (i: number) => text && Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(text, Math.min(i, text.length)));
+    const body = JSON.stringify(pos && text ? { blockId: pos.blockId, anchor: rel(pos.anchor), head: rel(pos.head) } : null);
+    if (!force && this.sent.get(pageId) === body) return;
+    this.sent.set(pageId, body);
+    const payload = b64(await seal(key, new TextEncoder().encode(body)));
+    this.wsSend({ type: 'awareness', page_id: pageId, payload });
+  }
+
+  private blockText(pageId: string, blockId: string): Y.Text | undefined {
+    const doc = this.docs.get(pageId);
+    const m = doc?.getArray<Y.Map<unknown>>('blocks').toArray().find((b) => b.get('id') === blockId);
+    return m?.get('text') as Y.Text | undefined;
+  }
+
+  /** Collaborators' cursors on a page as plain offsets against the current local text. */
+  resolveCursors(pageId: string, cursors: Record<number, RemoteCursor> | undefined): (RemoteCursor & CursorPos)[] {
+    const doc = this.docs.get(pageId);
+    if (!doc || !cursors) return [];
+    const abs = (r: unknown) => {
+      try {
+        return Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(r), doc)?.index ?? null;
+      } catch {
+        return null;
+      }
+    };
+    return Object.values(cursors).flatMap((c) => {
+      const head = abs(c.head);
+      const anchor = abs(c.anchor);
+      return head === null ? [] : [{ ...c, head, anchor: anchor ?? head }];
+    });
   }
 
   // ---------- sharing ----------
