@@ -2,6 +2,15 @@ package app.vellune.ui.shell
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +45,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -92,15 +101,48 @@ import app.vellune.core.Page
 import app.vellune.core.Workspace
 import app.vellune.ui.AppState
 
-/** Standard top bar; shows the drawer button when the sidebar isn't docked. */
+/**
+ * The place you're in, as a Discord channel header: an icon tile, the name and a line of context,
+ * then actions, over a hairline. No hamburger: on phones the tile opens the sidebar (so does a
+ * swipe); docked layouts show it as a plain marker.
+ */
 @Composable
-fun VTopBar(title: @Composable () -> Unit, onMenu: (() -> Unit)?, actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}) =
-    TopAppBar(
-        title = title,
-        navigationIcon = { if (onMenu != null) IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, "Open sidebar") } },
-        actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-    )
+fun VTopBar(
+    icon: ImageVector,
+    title: String,
+    onMenu: (() -> Unit)?,
+    subtitle: String? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().background(colors.surface).windowInsetsPadding(WindowInsets.statusBars)) {
+        Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            PlaceTile(icon, onMenu)
+            Column(Modifier.weight(1f).padding(start = 12.dp, end = 4.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            actions()
+        }
+        HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.5f))
+    }
+}
+
+/** A rounded tile with the place's icon; tappable (opens the sidebar) only when [onMenu] is set. */
+@Composable
+fun PlaceTile(icon: ImageVector, onMenu: (() -> Unit)?) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(MaterialTheme.shapes.small)
+            .background(colors.surfaceContainerHigh)
+            .then(if (onMenu != null) Modifier.clickable(role = Role.Button, onClickLabel = "Open sidebar", onClick = onMenu) else Modifier)
+            .semantics { if (onMenu != null) contentDescription = "Open sidebar" },
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, null, Modifier.size(20.dp), tint = colors.primary) }
+}
 
 /** A page's text in one line, for previews and search results. */
 fun Page.excerpt(max: Int = 220): String =
@@ -160,7 +202,7 @@ fun HomeScreen(ws: Workspace, pages: Map<String, Page>, nav: AppState, onMenu: (
             LargeFlexibleTopAppBar(
                 title = { Text(greeting) },
                 subtitle = { Text(today) },
-                navigationIcon = { if (onMenu != null) IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, "Open sidebar") } },
+                navigationIcon = { Box(Modifier.padding(start = 12.dp)) { PlaceTile(Icons.Outlined.Home, onMenu) } },
                 actions = { IconButton(onClick = { nav.searchOpen = true }) { Icon(Icons.Outlined.Search, "Search") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface, scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer),
                 scrollBehavior = scroll,
@@ -309,7 +351,7 @@ fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Str
 fun TrashScreen(ws: Workspace, pages: Map<String, Page>, onMenu: (() -> Unit)?) {
     val trashed = remember(pages) { pages.values.filter { it.deletedAt != null }.sortedByDescending { it.deletedAt } }
     var confirm by remember { mutableStateOf<Page?>(null) }
-    Scaffold(topBar = { VTopBar({ Text("Trash") }, onMenu) }) { pad ->
+    Scaffold(topBar = { VTopBar(Icons.Outlined.Delete, "Trash", onMenu, subtitle = if (trashed.isEmpty()) null else "${trashed.size} pages · restore or delete forever") }) { pad ->
         if (trashed.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
                 EmptyState(Icons.Outlined.Delete, "Trash is empty", "Deleted pages wait here until you restore or remove them.")

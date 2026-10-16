@@ -103,7 +103,7 @@ class InkCanvasView(context: Context) : FrameLayout(context) {
     private var dark = false
 
     // World units are CSS px on the web and dp here, so a page looks the same size on both at 100%.
-    private val view = Matrix().apply { setScale(density, density); postTranslate(24 * density, 24 * density) }
+    private val view = Matrix().apply { setScale(density, density); postTranslate(24 * density, 88 * density) }
     private val inverse = Matrix().also { view.invert(it) }
     private val scratch = FloatArray(9)
     private val visible = RectF()

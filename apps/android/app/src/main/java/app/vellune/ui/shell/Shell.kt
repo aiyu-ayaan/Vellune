@@ -121,7 +121,10 @@ fun Shell(app: Vellune, nav: AppState, dynamicColor: Boolean, onDynamicColor: (B
             Unit
         }
 
-        if (wide) {
+        if (page?.isEdgeless == true) {
+            // Canvas: full screen, nothing beside it.
+            Content(app, nav, pages, index, sync, onMenu = null, onInfo = onInfo)
+        } else if (wide) {
             val docked = infoDocked && info != null
             val card = RoundedCornerShape(
                 topStart = 28.dp, bottomStart = 28.dp,

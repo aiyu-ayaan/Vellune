@@ -1,6 +1,29 @@
 package app.vellune.ui.graph
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.LinkOff
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.ScatterPlot
+import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -103,7 +126,11 @@ fun GraphScreen(pages: Map<String, Page>, index: LinkIndex, nav: AppState, onMen
         }
     }
 
-    Scaffold(topBar = { VTopBar({ Text("Brain View") }, onMenu) }) { pad ->
+    val pageCount = nodes.count { it.kind == NodeKind.Page || it.kind == NodeKind.Journal }
+    Scaffold(
+        containerColor = colors.surfaceContainerLowest,
+        topBar = { VTopBar(Icons.Outlined.Hub, "Brain view", onMenu, subtitle = "$pageCount pages · ${edges.size} links") },
+    ) { pad ->
         Box(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding())) {
             Canvas(
                 Modifier
@@ -136,11 +163,21 @@ fun GraphScreen(pages: Map<String, Page>, index: LinkIndex, nav: AppState, onMen
                 frame // redraw as the layout settles
                 val cx = size.width / 2f + offset.x
                 val cy = size.height / 2f + offset.y
+                // A soft moonlit glow behind the cluster.
+                drawCircle(
+                    Brush.radialGradient(listOf(colors.primary.copy(alpha = 0.10f), Color.Transparent), center = Offset(cx, cy), radius = 420f * scale + 200f),
+                    radius = 420f * scale + 200f, center = Offset(cx, cy),
+                )
                 withTransform({ translate(cx, cy); scale(scale, scale, Offset.Zero) }) {
                     for (ed in edges) {
                         val a = idx[ed.source] ?: continue
                         val b = idx[ed.target] ?: continue
-                        drawLine(colors.outlineVariant, Offset(pos[a * 2], pos[a * 2 + 1]), Offset(pos[b * 2], pos[b * 2 + 1]), strokeWidth = 1.5f / scale)
+                        val lit = focus != null && (ed.source == focus || ed.target == focus)
+                        drawLine(
+                            if (lit) colors.primary.copy(alpha = 0.8f) else colors.outlineVariant.copy(alpha = 0.7f),
+                            Offset(pos[a * 2], pos[a * 2 + 1]), Offset(pos[b * 2], pos[b * 2 + 1]),
+                            strokeWidth = (if (lit) 2.5f else 1.5f) / scale,
+                        )
                     }
                     nodes.forEachIndexed { i, node ->
                         val c = when (node.kind) {
@@ -151,9 +188,10 @@ fun GraphScreen(pages: Map<String, Page>, index: LinkIndex, nav: AppState, onMen
                         }
                         val r = 5f + sqrt(node.degree.toFloat()) * 3f
                         val p = Offset(pos[i * 2], pos[i * 2 + 1])
+                        drawCircle(c.copy(alpha = if (node.id == focus) 0.35f else 0.18f), r + if (node.id == focus) 10f else 5f, p)
                         drawCircle(c, r, p)
                         if (scale > 0.5f || node.degree > 2) {
-                            val layout = measurer.measure(node.label.take(28), TextStyle(fontSize = 11.sp, color = colors.onSurfaceVariant))
+                            val layout = measurer.measure(node.label.take(28), TextStyle(fontSize = 11.sp, color = if (node.id == focus || node.degree > 2) colors.onSurface else colors.onSurfaceVariant))
                             drawText(layout, topLeft = Offset(p.x - layout.size.width / 2f, p.y + r + 3f))
                         }
                     }
@@ -161,13 +199,43 @@ fun GraphScreen(pages: Map<String, Page>, index: LinkIndex, nav: AppState, onMen
             }
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             ) {
-                item { FilterChip(local, { local = !local }, { Text(if (focus == null) "Local (open a page first)" else "Local") }, enabled = focus != null) }
-                item { FilterChip(showTags, { showTags = !showTags }, { Text("Tags") }) }
-                item { FilterChip(showUnresolved, { showUnresolved = !showUnresolved }, { Text("Unresolved") }) }
-                item { FilterChip(showOrphans, { showOrphans = !showOrphans }, { Text("Orphans") }) }
+                item { Filter(local, if (focus == null) "Local (open a page first)" else "Local", Icons.Outlined.MyLocation, enabled = focus != null) { local = !local } }
+                item { Filter(showTags, "Tags", Icons.Outlined.Tag) { showTags = !showTags } }
+                item { Filter(showUnresolved, "Unresolved", Icons.Outlined.LinkOff) { showUnresolved = !showUnresolved } }
+                item { Filter(showOrphans, "Orphans", Icons.Outlined.ScatterPlot) { showOrphans = !showOrphans } }
+            }
+            // Legend, bottom left; zoom, bottom right.
+            Surface(shape = CircleShape, color = colors.surfaceContainerHigh, modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(16.dp)) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Legend(colors.primary, "Page")
+                    Legend(colors.secondary, "Journal")
+                    if (showTags) Legend(colors.tertiary, "Tag")
+                    if (showUnresolved) Legend(colors.outline, "Missing")
+                }
+            }
+            Surface(shape = CircleShape, color = colors.surfaceContainerHigh, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { scale = (scale * 0.8f).coerceIn(0.2f, 5f) }) { Icon(Icons.Outlined.Remove, "Zoom out") }
+                    Text("${(scale * 100).toInt()}%", style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.clip(CircleShape).clickable(onClickLabel = "Reset view") { scale = 1f; offset = Offset.Zero }.padding(8.dp))
+                    IconButton(onClick = { scale = (scale * 1.25f).coerceIn(0.2f, 5f) }) { Icon(Icons.Outlined.Add, "Zoom in") }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun Filter(on: Boolean, label: String, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) = FilterChip(
+    on, onClick, { Text(label) }, enabled = enabled, shape = CircleShape,
+    leadingIcon = { Icon(icon, null, Modifier.size(FilterChipDefaults.IconSize)) },
+    colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+)
+
+@Composable
+private fun Legend(color: Color, label: String) = Row(verticalAlignment = Alignment.CenterVertically) {
+    Box(Modifier.size(8.dp).background(color, CircleShape))
+    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp))
 }

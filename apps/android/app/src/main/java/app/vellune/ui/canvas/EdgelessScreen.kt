@@ -6,7 +6,23 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,9 +45,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.FitScreen
-import androidx.compose.material.icons.outlined.ZoomIn
-import androidx.compose.material.icons.outlined.ZoomOut
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -42,7 +55,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.VerticalFloatingToolbar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -99,7 +111,15 @@ private const val NOTE_ID = "note"
  * notes, embedded pages and native ink, on an infinite pannable, zoomable sheet.
  */
 @Composable
-fun EdgelessScreen(app: Vellune, nav: AppState, page: Page, onEditDoc: () -> Unit, modifier: Modifier = Modifier) {
+fun EdgelessScreen(
+    app: Vellune,
+    nav: AppState,
+    page: Page,
+    onEditDoc: () -> Unit,
+    onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val ws = app.workspace
     val db = app.db
     val colors = MaterialTheme.colorScheme
@@ -128,7 +148,8 @@ fun EdgelessScreen(app: Vellune, nav: AppState, page: Page, onEditDoc: () -> Uni
     var canRedo by remember { mutableStateOf(false) }
     var scale by remember { mutableFloatStateOf(density) }
     var tx by remember { mutableFloatStateOf(24 * density) }
-    var ty by remember { mutableFloatStateOf(24 * density) }
+    // Start below the floating back and title pills.
+    var ty by remember { mutableFloatStateOf(88 * density) }
     val drag = remember { mutableStateMapOf<String, Offset>() }
     var editing by remember { mutableStateOf<CanvasItem?>(null) }
     var embedPicker by remember { mutableStateOf(false) }
@@ -213,6 +234,16 @@ fun EdgelessScreen(app: Vellune, nav: AppState, page: Page, onEditDoc: () -> Uni
         view.setEntries(built)
     }
 
+    // Drawing gets the whole display; a swipe from an edge brings the system bars back for a moment.
+    val window = (LocalActivity.current)?.window
+    val hostView = LocalView.current
+    DisposableEffect(window) {
+        val bars = window?.let { WindowCompat.getInsetsController(it, hostView) }
+        bars?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        bars?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose { bars?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+
     Box(modifier.fillMaxSize().clipToBounds().background(colors.surfaceContainerLowest)) {
         // Paper: dot grid in world space.
         val dot = colors.outlineVariant
@@ -258,20 +289,40 @@ fun EdgelessScreen(app: Vellune, nav: AppState, page: Page, onEditDoc: () -> Uni
 
         AndroidView({ view }, Modifier.fillMaxSize())
 
-        // Zoom controls.
-        VerticalFloatingToolbar(
-            expanded = true,
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 12.dp),
+        // Floating chrome: back and title on the left, zoom and page actions on the right. Fades while inking.
+        val chromeAlpha by animateFloatAsState(if (inking) 0.3f else 1f, MaterialTheme.motionScheme.fastEffectsSpec(), label = "chrome")
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(12.dp)
+                .graphicsLayer { alpha = chromeAlpha },
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { view.zoomBy(1.25f) }) { Icon(Icons.Outlined.ZoomIn, "Zoom in") }
-            Text("${(scale / density * 100).toInt()}%", style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.align(Alignment.CenterHorizontally).clickable { view.fitTo(null) }.padding(vertical = 4.dp))
-            IconButton(onClick = { view.zoomBy(0.8f) }) { Icon(Icons.Outlined.ZoomOut, "Zoom out") }
-            IconButton(onClick = {
-                val all = view.inkBounds() ?: RectF()
-                itemRects.values.forEach { all.union(it) }
-                view.fitTo(all.takeUnless { it.isEmpty })
-            }) { Icon(Icons.Outlined.FitScreen, "Fit to content") }
+            Surface(shape = CircleShape, color = colors.surfaceContainerHigh, shadowElevation = 3.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 16.dp)) {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
+                    Text(page.displayTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 200.dp))
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Surface(shape = CircleShape, color = colors.surfaceContainerHigh, shadowElevation = 3.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp)) {
+                    Text(
+                        "${(scale / density * 100).toInt()}%", style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(onClickLabel = "Fit to content") {
+                                val all = view.inkBounds() ?: RectF()
+                                itemRects.values.forEach { all.union(it) }
+                                view.fitTo(all.takeUnless { it.isEmpty })
+                            }
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                    )
+                    actions()
+                }
+            }
         }
 
         BoxWithConstraints(Modifier.align(Alignment.BottomCenter)) {
