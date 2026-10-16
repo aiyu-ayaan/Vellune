@@ -1,6 +1,7 @@
 // Markdown import/export. Same rules as crates/markdown: wikilink syntax, frontmatter
 // preservation, fenced code, and HTML-comment sidecars for content Markdown cannot express.
 
+import { isTableSeparator, markdownToTable, tableToMarkdown } from './table';
 import { Block, Page, newBlock, newPage } from './model';
 
 export interface WikiLink {
@@ -111,6 +112,8 @@ function renderFlat(b: Block): string {
         .join('\n');
     case 'divider':
       return '---';
+    case 'table':
+      return tableToMarkdown(b.text);
     case 'image':
       return `![${b.text.replace(/[\[\]\n]/g, ' ')}](${b.src ?? ''})`;
     case 'code': {
@@ -134,7 +137,7 @@ export function pageToMarkdown(page: Page): string {
   }
   if (page.extraFrontmatter) yaml += page.extraFrontmatter.endsWith('\n') ? page.extraFrontmatter : `${page.extraFrontmatter}\n`;
 
-  const parts = page.blocks.filter((b) => b.kind === 'code' || b.kind === 'divider' || (b.kind === 'image' && b.src) || b.text !== '').map(renderBlock);
+  const parts = page.blocks.filter((b) => b.kind === 'code' || b.kind === 'divider' || b.kind === 'table' || (b.kind === 'image' && b.src) || b.text !== '').map(renderBlock);
   const { items, strokes } = page.canvas;
   if (items.length || strokes.length) {
     // "-->" only appears inside JSON strings, where \u003e is an equivalent escape.
@@ -236,6 +239,14 @@ function parseBlocks(body: string): { blocks: Block[]; canvas?: Page['canvas'] }
         code.push(lines[i]);
       }
       blocks.push(newBlock('code', code.join('\n'), lang ? { language: lang } : {}));
+      continue;
+    }
+    if (t.startsWith('|') && i + 1 < lines.length && lines[i + 1].includes('|') && isTableSeparator(lines[i + 1])) {
+      flush();
+      const rows = [line, lines[i + 1]];
+      for (i += 2; i < lines.length && lines[i].trim().startsWith('|'); i++) rows.push(lines[i]);
+      i--;
+      blocks.push(newBlock('table', markdownToTable(rows)));
       continue;
     }
     const img = /^!\[([^\]]*)\]\((\S+)\)$/.exec(t);

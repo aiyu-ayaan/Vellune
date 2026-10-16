@@ -1,7 +1,7 @@
 // Client-side workspace model. Mirrors crates/document + crates/canvas until the Rust core
 // is exposed to the UI (wasm for web, Tauri IPC for desktop).
 
-export type BlockKind = 'paragraph' | 'heading' | 'todo' | 'bullet' | 'numbered' | 'quote' | 'callout' | 'code' | 'divider' | 'image' | 'toggle';
+export type BlockKind = 'paragraph' | 'heading' | 'todo' | 'bullet' | 'numbered' | 'quote' | 'callout' | 'code' | 'divider' | 'image' | 'toggle' | 'table';
 
 export type NotionTextColor = 'gray' | 'brown' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'red';
 export type NotionColor = 'default' | NotionTextColor | `${NotionTextColor}_background`;

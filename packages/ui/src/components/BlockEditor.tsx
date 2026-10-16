@@ -30,6 +30,7 @@ import {
   Plus,
   Quote,
   LayoutTemplate,
+  Table2,
   Smile,
   Bold,
   Italic,
@@ -43,6 +44,8 @@ import { INLINE_MAX, isImage, prepareImage, readDataUrl } from '../image';
 import { uploadBlob } from '../cloud/blobs';
 import { BlobImage } from './BlobImage';
 import { IconPicker } from './PageIcon';
+import { TableBlock } from './TableBlock';
+import { emptyTable } from '../table';
 import { instantiate, isTemplate } from '../templates';
 import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock, todayKey } from '../model';
 import { store, useStore } from '../store';
@@ -639,6 +642,24 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         },
       },
       {
+        id: 'table',
+        label: 'Table',
+        hint: 'Rows and columns',
+        group: B,
+        icon: Table2,
+        keywords: 'table grid spreadsheet rows columns',
+        run: (block, ctx) => {
+          const table = newBlock('table', emptyTable(3, 3));
+          const after = newBlock();
+          if (ctx.text.trim() === '') update((bs) => bs.flatMap((b) => (b.id === block.id ? [{ ...table, id: block.id }, after] : [b])));
+          else {
+            patchBlock(block.id, (b) => ({ ...b, text: ctx.text }));
+            insertAfter(block.id, table, after);
+          }
+          requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`#b-${ctx.text.trim() ? table.id : block.id} [data-cell="0:0"]`)?.focus());
+        },
+      },
+      {
         id: 'divider',
         label: 'Divider',
         hint: '---',
@@ -851,7 +872,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
   /** Nearest visible text block above (-1) or below (1) block `i`, skipping folded children. */
   const neighbor = (i: number, dir: -1 | 1) => {
     const at = shown.findIndex((b) => b.id === page.blocks[i].id);
-    for (let j = at + dir; j >= 0 && j < shown.length; j += dir) if (shown[j].kind !== 'divider' && shown[j].kind !== 'image') return shown[j];
+    for (let j = at + dir; j >= 0 && j < shown.length; j += dir) if (!['divider', 'image', 'table'].includes(shown[j].kind)) return shown[j];
     return undefined;
   };
 
@@ -989,6 +1010,11 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         pendingFocus.current = { id: block.id, caret: 0 };
         return;
       }
+      if (prev.kind === 'table') {
+        // Text never merges into a table; an empty block after one just goes away.
+        if (!block.text) update((bs) => bs.filter((b) => b.id !== block.id));
+        return;
+      }
       update((bs) => bs.filter((b) => b.id !== block.id).map((b) => (b.id === prev.id ? { ...b, text: b.text + block.text } : b)));
       focusBlock(prev.id, prev.text.length);
       return;
@@ -996,7 +1022,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
 
     if (e.key === 'Delete' && pos === block.text.length && collapsed) {
       const next = page.blocks[i + 1];
-      if (!next) return;
+      if (!next || next.kind === 'table') return;
       e.preventDefault();
       update((bs) => bs.filter((b) => b.id !== next.id).map((b) => (b.id === block.id ? { ...b, text: b.text + next.text } : b)));
       pendingFocus.current = { id: block.id, caret: pos };
@@ -1483,7 +1509,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       ...(readOnly
                         ? []
                         : ([
-                            { label: 'Edit', icon: Type, onSelect: () => focusBlock(block.id), disabled: block.kind === 'divider' || block.kind === 'image' },
+                            { label: 'Edit', icon: Type, onSelect: () => focusBlock(block.id), disabled: ['divider', 'image', 'table'].includes(block.kind) },
                             {
                               label: 'Insert block below',
                               icon: CornerDownLeft,
@@ -1652,6 +1678,8 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       )
                     ) : block.kind === 'divider' ? (
                       <hr className="block-divider" />
+                    ) : block.kind === 'table' ? (
+                      <TableBlock text={block.text} readOnly={readOnly} onChange={(text) => patchBlock(block.id, (b) => ({ ...b, text }))} />
                     ) : (
                       <div className="block-line">
                         {block.kind === 'todo' && (

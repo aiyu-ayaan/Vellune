@@ -7,6 +7,7 @@ import { BlobImage } from './BlobImage';
 import { parseInline } from '../inline';
 import { highlightCode } from '../highlight';
 import { depth, listNumber } from '../outline';
+import { parseTable } from '../table';
 import './cloud.css';
 
 /** Inline marks for readers; wikilinks show as text because linked pages are not public. */
@@ -81,6 +82,16 @@ export const ReadOnlyBlocks: React.FC<{
         return b.src ? <BlobImage key={b.id} pageId={page.id} src={b.src} alt={b.text} className={`public-image${mark}`} pageKey={pageKey} /> : null;
       case 'divider':
         return <hr key={b.id} className={mark.trim() || undefined} />;
+      case 'table':
+        return (
+          <table key={b.id} className={`public-table${mark}`}>
+            <tbody>
+              {parseTable(b.text).map((row, r) => (
+                <tr key={r}>{row.map((c, k) => (r === 0 ? <th key={k}>{rich(c)}</th> : <td key={k}>{rich(c)}</td>))}</tr>
+              ))}
+            </tbody>
+          </table>
+        );
       default:
         return <p key={b.id} className={cls}>{t}</p>;
     }

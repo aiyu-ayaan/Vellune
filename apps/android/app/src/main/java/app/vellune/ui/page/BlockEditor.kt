@@ -112,6 +112,7 @@ import app.vellune.Vellune
 import app.vellune.core.Block
 import app.vellune.core.LinkIndex
 import app.vellune.core.Page
+import app.vellune.core.emptyTable
 import app.vellune.core.instantiateTemplate
 import app.vellune.core.isTemplate
 import app.vellune.core.listNumber
@@ -278,6 +279,11 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
         }
         val shown = visibleBlocks(blocks, folded)
         val prev = shown.getOrNull(shown.indexOfFirst { it.id == b.id } - 1) ?: return
+        if (prev.kind == "table") {
+            if (b.text.isEmpty()) edit { bs -> bs.filterNot { it.id == b.id } }
+            else fields[b.id] = TextFieldValue(ZWSP + b.text, TextRange(1))
+            return
+        }
         if (prev.kind == "divider" || prev.kind == "image") {
             edit { bs -> bs.filterNot { it.id == prev.id } }
             fields[b.id] = TextFieldValue(ZWSP + b.text, TextRange(1))
@@ -398,6 +404,7 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                         onUrl = { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } },
                         onTag = { nav.navigate(Dest.Database(it)) },
                         onDeleteBlock = { edit { bs -> bs.filterNot { it.id == b.id } } },
+                        onText = { t -> replace(b.copy(text = t)) },
                     )
                     val s = suggest
                     if (s != null && s.first == b.id) SuggestMenu(
@@ -405,6 +412,17 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                         onDismiss = { suggest = null },
                         onPick = { insert, kind -> applySuggestion(b, s.second, insert, kind) },
                         onImage = { applySuggestion(b, s.second, ""); picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        onTable = {
+                            applySuggestion(b, s.second, "")
+                            val table = Block(kind = "table", text = emptyTable())
+                            val after = Block()
+                            edit { bs ->
+                                val at = bs.indexOfFirst { it.id == b.id }
+                                if (bs[at].text.isBlank()) bs.take(at) + table + after + bs.drop(at + 1)
+                                else bs.take(at + 1) + table + after + bs.drop(at + 1)
+                            }
+                            focusAt(after.id, 0)
+                        },
                         onTemplate = { t ->
                             applySuggestion(b, s.second, "")
                             val copies = instantiateTemplate(t, page.title)
@@ -507,6 +525,7 @@ private fun BlockRow(
     onUrl: (String) -> Unit,
     onTag: (String) -> Unit,
     onDeleteBlock: () -> Unit,
+    onText: (String) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val type = MaterialTheme.typography
@@ -516,6 +535,10 @@ private fun BlockRow(
     }
     if (b.kind == "image") {
         BlobImage(app, pageId, b, onDeleteBlock)
+        return
+    }
+    if (b.kind == "table") {
+        TableBlock(b.text, onText)
         return
     }
     val style: TextStyle = when (b.kind) {
@@ -613,6 +636,7 @@ private fun SuggestMenu(
     onImage: () -> Unit,
     onDivider: () -> Unit,
     onTemplate: (Page) -> Unit,
+    onTable: () -> Unit,
 ) {
     val q = s.query.trim()
     DropdownMenu(
@@ -627,6 +651,7 @@ private fun SuggestMenu(
                     DropdownMenuItem({ Text(k.label) }, { onPick("", k) }, trailingIcon = { Text(k.hint, color = MaterialTheme.colorScheme.outline) })
                 }
                 if (q.isEmpty() || "image picture photo".contains(q, true)) DropdownMenuItem({ Text("Image") }, onImage, leadingIcon = { Icon(Icons.Outlined.Image, null) })
+                if (q.isEmpty() || "table grid spreadsheet rows columns".contains(q, true)) DropdownMenuItem({ Text("Table") }, onTable, trailingIcon = { Text("|", color = MaterialTheme.colorScheme.outline) })
                 if (q.isEmpty() || "divider rule line".contains(q, true)) DropdownMenuItem({ Text("Divider") }, onDivider, trailingIcon = { Text("---", color = MaterialTheme.colorScheme.outline) })
                 if (q.isEmpty() || "today date journal".contains(q, true)) DropdownMenuItem({ Text("Today") }, { onPick("[[${todayKey()}]]", null) })
                 pages.values.filter { it.isTemplate && (q.isEmpty() || it.title.contains(q, true) || "template".contains(q, true)) }

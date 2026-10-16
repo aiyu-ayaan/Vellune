@@ -69,6 +69,7 @@ The web/desktop client (`packages/ui/src/model.ts`) currently implements these `
 | `bullet` | `- ` |
 | `numbered` | `1. ` (every item exports as `1.`; CommonMark renumbers) |
 | `toggle` | `+ ` (a CommonMark bullet elsewhere; Vellune reads it back as a toggle) |
+| `table` | GFM pipe table; the first row is the header. Block text holds the cells as TSV (rows on lines, cells split by tabs), so edits to different cells merge per character |
 | `quote` | `> ` |
 | `callout` | Obsidian callout `> [!note] …`; any `[!type]` imports as a callout |
 | `code` | fenced block with optional language |
