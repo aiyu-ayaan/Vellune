@@ -142,6 +142,7 @@ private val TURN_INTO = listOf(
     Kind("Quote", "quote", null, ">", "blockquote citation"),
     Kind("Callout", "callout", null, "!>", "note info tip warning highlight"),
     Kind("Code block", "code", null, "```", "code snippet pre"),
+    Kind("Math formula", "math", null, "$$", "math latex equation formula katex tex"),
     Kind("Toggle list", "toggle", null, "+", "toggle collapse fold details expand"),
 )
 
@@ -161,6 +162,7 @@ private val SHORTCUTS: List<Pair<String, (Block) -> Block>> = listOf(
     "!> " to { b -> b.copy(kind = "callout") },
     "> " to { b -> b.copy(kind = "quote") },
     "```" to { b -> b.copy(kind = "code") },
+    "$$" to { b -> b.copy(kind = "math") },
 )
 
 private sealed interface Suggest {
@@ -308,7 +310,7 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
         if (!v.text.startsWith(ZWSP)) return backspaceAtStart(b)
         val text = v.text.drop(1).replace(ZWSP.toString(), "")
         val caret = (v.selection.end - 1).coerceIn(0, text.length)
-        if (b.kind != "code" && '\n' in text) {
+        if (b.kind != "code" && b.kind != "math" && '\n' in text) {
             val lines = text.split('\n')
             return split(b, lines.first(), lines.drop(1))
         }
@@ -601,7 +603,7 @@ private fun BlockRow(
             3 -> type.headlineSmall
             else -> type.titleLarge
         }
-        "code" -> type.bodyMedium.copy(fontFamily = FontFamily.Monospace, fontSize = 14.sp, lineHeight = 21.sp)
+        "code", "math" -> type.bodyMedium.copy(fontFamily = FontFamily.Monospace, fontSize = 14.sp, lineHeight = 21.sp)
         "quote" -> type.bodyLarge.copy(lineHeight = 26.sp, color = colors.onSurfaceVariant)
         else -> type.bodyLarge.copy(lineHeight = 26.sp)
     }.let { s ->
@@ -614,7 +616,7 @@ private fun BlockRow(
         else -> 2.dp
     }
     val container = when (b.kind) {
-        "code" -> Modifier.background(colors.surfaceContainerHigh, MaterialTheme.shapes.medium).padding(14.dp)
+        "code", "math" -> Modifier.background(colors.surfaceContainerHigh, MaterialTheme.shapes.medium).padding(14.dp)
         "callout" -> Modifier.background(colors.secondaryContainer, MaterialTheme.shapes.medium).padding(14.dp)
         else -> Modifier
     }
@@ -630,6 +632,8 @@ private fun BlockRow(
             "numbered" -> Text("$number.", style = style, modifier = Modifier.width(28.dp))
             "quote" -> Box(Modifier.padding(end = 12.dp).width(3.dp).height(26.dp).background(colors.primary, CircleShape))
             "callout" -> Text("💡", style = style, modifier = Modifier.padding(end = 10.dp))
+            // shortcut: Android shows the LaTeX source; rendering needs a math engine (the web uses KaTeX).
+            "math" -> Text("∑", style = style.copy(color = colors.primary), modifier = Modifier.padding(end = 10.dp))
         }
         val text = field.text.drop(1)
         if (focused || text.isEmpty()) {
@@ -638,7 +642,7 @@ private fun BlockRow(
                 onValueChange = onChange,
                 textStyle = style,
                 cursorBrush = SolidColor(colors.primary),
-                visualTransformation = if (b.kind == "code") androidx.compose.ui.text.input.VisualTransformation.None else InlineTransformation(inline),
+                visualTransformation = if (b.kind == "code" || b.kind == "math") androidx.compose.ui.text.input.VisualTransformation.None else InlineTransformation(inline),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.weight(1f).focusRequester(requester).onFocusChanged { onFocus(it.isFocused) },
                 decorationBox = { inner ->
@@ -648,6 +652,7 @@ private fun BlockRow(
                                 "heading" -> "Heading ${b.level ?: 1}"
                                 "todo" -> "To-do"
                                 "code" -> "Code"
+                                "math" -> "LaTeX formula, e.g. e^{i\\pi} + 1 = 0"
                                 else -> "Type '/' for commands"
                             },
                             style = style.copy(color = colors.outline, textDecoration = null),
@@ -658,7 +663,7 @@ private fun BlockRow(
             )
         } else {
             // Rendered: links, tags and URLs are tappable; a tap elsewhere edits at that spot.
-            val annotated = remember(text, inline, b.kind) { if (b.kind == "code") androidx.compose.ui.text.AnnotatedString(text) else styleInline(text, inline) }
+            val annotated = remember(text, inline, b.kind) { if (b.kind == "code" || b.kind == "math") androidx.compose.ui.text.AnnotatedString(text) else styleInline(text, inline) }
             var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
             Text(
                 annotated, style = style, onTextLayout = { layout = it },

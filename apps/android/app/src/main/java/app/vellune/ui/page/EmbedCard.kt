@@ -33,7 +33,7 @@ fun EmbedCard(name: String, target: Page?, onOpen: () -> Unit, onEdit: () -> Uni
             if (target == null) Text("No page named “$name” yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             else target.blocks.take(12).filter { it.text.isNotBlank() && it.kind !in setOf("image", "file", "table") }.forEach { b ->
                 Text(
-                    (if (b.kind == "bullet") "• " else if (b.kind == "todo") (if (b.checked == true) "☑ " else "☐ ") else "") + b.text,
+                    (if (b.kind == "bullet") "• " else if (b.kind == "todo") (if (b.checked == true) "☑ " else "☐ ") else if (b.kind == "math") "∑ " else "") + b.text,
                     style = if (b.kind == "heading") MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3,
                     modifier = Modifier.padding(start = 16.dp * b.depth, top = 2.dp),

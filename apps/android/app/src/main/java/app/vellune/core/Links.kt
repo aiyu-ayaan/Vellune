@@ -44,7 +44,7 @@ fun pageReferences(page: Page): PageRefs {
     val links = mutableListOf<WikiLink>()
     val tags = LinkedHashSet(page.tags)
     for (b in page.blocks) {
-        if (b.kind == "code") continue
+        if (b.kind == "code" || b.kind == "math") continue
         links += extractWikilinks(b.text)
         tags += extractInlineTags(b.text)
     }
@@ -83,7 +83,7 @@ fun buildIndex(all: Collection<Page>): LinkIndex {
         val unresolved = LinkedHashSet<String>()
         val refs = pageReferences(p)
         for (t in refs.tags) tags.getOrPut(t) { LinkedHashSet() } += p.id
-        val contexts = p.blocks.filter { it.kind != "code" }.map { it.text } +
+        val contexts = p.blocks.filter { it.kind != "code" && it.kind != "math" }.map { it.text } +
             p.canvas.items.filter { it.type == "sticky" }.map { it.text.orEmpty() }
         for (l in refs.links) {
             val target = resolve(l.target)

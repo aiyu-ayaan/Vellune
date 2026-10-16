@@ -24,7 +24,7 @@ data class Block(
     val depth get() = indent ?: 0
 
     companion object {
-        val KINDS = listOf("paragraph", "heading", "todo", "bullet", "numbered", "toggle", "quote", "callout", "code", "divider", "image")
+        val KINDS = listOf("paragraph", "heading", "todo", "bullet", "numbered", "toggle", "quote", "callout", "code", "divider", "image", "table", "file", "math")
     }
 }
 
