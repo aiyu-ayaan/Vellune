@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Download,
   FileText,
@@ -10,6 +10,38 @@ import {
 } from 'lucide-react';
 import { store, useStore } from '../store';
 import { markdownToPage, pageToMarkdown } from '../markdown';
+import { useSession } from '../cloud/session';
+import { useSync } from '../cloud/sync';
+import { Avatar, ShareMenu } from './ShareMenu';
+
+const SyncStatus: React.FC = () => {
+  const status = useSession((s) => s.status);
+  const connection = useSync((s) => s.connection);
+  const pending = useSync((s) => s.pending);
+  if (status !== 'ready') return null;
+  const label =
+    connection === 'online' ? (pending ? 'Syncing…' : 'Synced') : connection === 'connecting' ? 'Connecting…' : `Offline${pending ? ` · ${pending} pending` : ''}`;
+  return (
+    <span className="sync-status" role="status" aria-live="polite">
+      <span className={`sync-dot ${connection === 'online' && !pending ? 'online' : connection === 'offline' ? '' : 'connecting'}`} aria-hidden="true" />
+      {label}
+    </span>
+  );
+};
+
+const Presence: React.FC<{ pageId: string }> = ({ pageId }) => {
+  const me = useSession((s) => s.user?.id);
+  const users = useSync((s) => s.presence[pageId]);
+  const others = (users ?? []).filter((u) => u.id !== me);
+  if (!others.length) return null;
+  return (
+    <div className="presence" aria-label={`Also viewing: ${others.map((u) => u.name).join(', ')}`}>
+      {others.slice(0, 4).map((u) => (
+        <Avatar key={u.id} name={u.name} />
+      ))}
+    </div>
+  );
+};
 
 export const TopBar: React.FC<{
   showInspector: boolean;
@@ -18,6 +50,7 @@ export const TopBar: React.FC<{
   const { pages, activeId, view } = useStore((s) => s);
   const activePage = activeId ? pages[activeId] : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const handleExport = () => {
     if (!activePage) return;
@@ -81,8 +114,8 @@ export const TopBar: React.FC<{
         )}
 
         {(view === 'graph' || view === 'database' || view === 'trash') && (
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-            {view === 'graph' && 'Knowledge Graph (Brain View)'}
+          <span style={{ fontWeight: 500, fontSize: '14px' }}>
+            {view === 'graph' && 'Brain View'}
             {view === 'database' && 'Database View'}
             {view === 'trash' && 'Trash'}
           </span>
@@ -90,11 +123,21 @@ export const TopBar: React.FC<{
       </div>
 
       <div className="topbar-actions">
+        <SyncStatus />
         {activePage && !activePage.deletedAt && (
           <>
+            <Presence pageId={activePage.id} />
+            <div className="topbar-share">
+              <button type="button" className="btn-text" aria-haspopup="dialog" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>
+                Share
+              </button>
+              {shareOpen && <ShareMenu pageId={activePage.id} onClose={() => setShareOpen(false)} />}
+            </div>
             <button
               className="btn-icon"
               title={activePage.favorite ? 'Remove from favorites' : 'Add to favorites'}
+              aria-label={activePage.favorite ? 'Remove from favorites' : 'Add to favorites'}
+              aria-pressed={activePage.favorite}
               onClick={() => store.updatePage(activePage.id, (p) => ({ ...p, favorite: !p.favorite }))}
             >
               <Star
@@ -103,12 +146,13 @@ export const TopBar: React.FC<{
                 color={activePage.favorite ? 'var(--accent)' : 'var(--text-secondary)'}
               />
             </button>
-            <button className="btn-icon" title="Export Markdown" onClick={handleExport}>
+            <button className="btn-icon" title="Export Markdown" aria-label="Export Markdown" onClick={handleExport}>
               <Download size={16} />
             </button>
             <button
               className="btn-icon"
               title="Import Markdown file"
+              aria-label="Import Markdown file"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={16} />
@@ -116,6 +160,7 @@ export const TopBar: React.FC<{
             <button
               className="btn-icon"
               title="Delete Note"
+              aria-label="Move note to trash"
               onClick={() => store.trash(activePage.id)}
             >
               <Trash2 size={16} />
@@ -126,6 +171,8 @@ export const TopBar: React.FC<{
         <button
           className={`btn-icon ${showInspector ? 'active' : ''}`}
           title="Toggle Backlinks & Inspector Panel"
+          aria-label="Toggle inspector panel"
+          aria-pressed={showInspector}
           onClick={onToggleInspector}
         >
           <PanelRight size={16} />

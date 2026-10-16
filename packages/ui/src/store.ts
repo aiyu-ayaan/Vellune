@@ -4,6 +4,8 @@
 import { useSyncExternalStore } from 'react';
 import { Page, newBlock, newPage, todayKey } from './model';
 import { seedPages } from './seed';
+import { sync } from './cloud/sync';
+import { session } from './cloud/session';
 
 export type View = 'page' | 'edgeless' | 'graph' | 'database' | 'trash';
 
@@ -92,6 +94,7 @@ class Store {
     const activeId = p.activeId && map[p.activeId] && !map[p.activeId].deletedAt ? p.activeId : (pages.find((x) => !x.deletedAt)?.id ?? null);
     this.set({ pages: map, activeId, view: p.view === 'trash' ? 'page' : (p.view ?? 'page'), loaded: true, persistence: this.db ? 'indexeddb' : 'memory' });
     if (isNew) pages.forEach((x) => this.markDirty(x.id));
+    await sync.init({ pages: () => this.state.pages, applyRemote: this.applyRemote, removeLocal: this.removeLocal });
     window.addEventListener('pagehide', this.flush);
     document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && this.flush());
   }
@@ -125,12 +128,16 @@ class Store {
     const page = newPage(title, init);
     this.set({ pages: { ...this.state.pages, [page.id]: page }, ...(open ? { activeId: page.id, view: 'page' as View } : {}) });
     this.markDirty(page.id);
+    sync.localChange(page);
     return page;
   };
 
   addPages = (pages: Page[]) => {
     this.set({ pages: { ...this.state.pages, ...Object.fromEntries(pages.map((p) => [p.id, p])) } });
-    pages.forEach((p) => this.markDirty(p.id));
+    pages.forEach((p) => {
+      this.markDirty(p.id);
+      sync.localChange(p);
+    });
   };
 
   updatePage = (id: string, fn: (p: Page) => Page) => {
@@ -140,6 +147,33 @@ class Store {
     if (next.blocks.length === 0) next.blocks = [newBlock()];
     this.set({ pages: { ...this.state.pages, [id]: next } });
     this.markDirty(id);
+    sync.localChange(next);
+  };
+
+  /** A merged remote version of a page arrived; render and cache it without echoing it back. */
+  applyRemote = (page: Page) => {
+    page = { ...page, favorite: this.state.pages[page.id]?.favorite ?? false };
+    this.set({ pages: { ...this.state.pages, [page.id]: page } });
+    this.markDirty(page.id);
+  };
+
+  /** Drop a page from this device only (e.g. access to a shared page was revoked). */
+  removeLocal = (id: string) => {
+    const { [id]: _gone, ...rest } = this.state.pages;
+    const activeId = this.state.activeId === id ? (Object.values(rest).find((p) => !p.deletedAt)?.id ?? null) : this.state.activeId;
+    this.set({ pages: rest, activeId });
+    this.markDirty(id);
+  };
+
+  /** Logout: wipe every local page and start from the seed workspace. */
+  reset = () => {
+    const seeded = seedPages();
+    for (const id of Object.keys(this.state.pages)) this.dirty.add(id);
+    this.set({ pages: Object.fromEntries(seeded.map((p) => [p.id, p])), activeId: seeded[0]?.id ?? null, view: 'page' });
+    seeded.forEach((p) => {
+      this.markDirty(p.id);
+      sync.localChange(p);
+    });
   };
 
   open = (id: string, view?: View) => {
@@ -179,6 +213,7 @@ class Store {
     const { [id]: _gone, ...rest } = this.state.pages;
     this.set({ pages: rest });
     this.markDirty(id);
+    void sync.deleteRemote(id);
   };
 }
 
@@ -186,4 +221,16 @@ export const store = new Store();
 
 export function useStore<T>(select: (s: State) => T): T {
   return useSyncExternalStore(store.subscribe, () => select(store.get()));
+}
+
+/** Sign out and wipe this device: synced docs, pending ops, keys, and local pages. */
+session.onAccountSwitch = () => {
+  sync.reset();
+  store.reset();
+};
+
+export async function signOut() {
+  sync.reset();
+  await session.logout();
+  store.reset();
 }
