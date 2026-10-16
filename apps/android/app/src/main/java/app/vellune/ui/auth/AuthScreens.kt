@@ -2,7 +2,19 @@ package app.vellune.ui.auth
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Draw
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,33 +74,73 @@ import app.vellune.core.User
 import kotlinx.coroutines.launch
 import java.net.URI
 
+/** Vellune's mark: a crescent moon (lune) cut from a disc, in the primary tone. */
+@Composable
+fun Crescent(modifier: Modifier, color: Color = MaterialTheme.colorScheme.primary) = Canvas(modifier) {
+    val r = size.minDimension / 2f
+    val disc = Path().apply { addOval(Rect(center, r)) }
+    val bite = Path().apply { addOval(Rect(Offset(center.x + r * 0.42f, center.y - r * 0.28f), r * 0.86f)) }
+    drawPath(Path.combine(PathOperation.Difference, disc, bite), color)
+}
+
+@Composable
+private fun Brand(large: Boolean) = Column(horizontalAlignment = if (large) Alignment.Start else Alignment.CenterHorizontally) {
+    Crescent(Modifier.size(if (large) 96.dp else 64.dp))
+    Spacer(Modifier.height(if (large) 28.dp else 16.dp))
+    Text("Vellune", style = if (large) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+    Text("Where thoughts take form.", style = if (large) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (large) {
+        Spacer(Modifier.height(40.dp))
+        listOf(
+            Icons.Outlined.Lock to "End-to-end encrypted before it leaves this device",
+            Icons.Outlined.CloudOff to "Works offline, syncs when you're back",
+            Icons.Outlined.Draw to "Native ink, docs and canvases in one place",
+        ).forEach { (icon, text) ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
+                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.shapes.small), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+                Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp))
+            }
+        }
+    }
+}
+
+/** Sign-in frame: brand beside the form on wide windows, above it on phones; the form sits on a tonal card. */
 @Composable
 private fun AuthFrame(title: String, subtitle: String, content: @Composable () -> Unit) {
-    Box(
+    val colors = MaterialTheme.colorScheme
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-            .safeDrawingPadding()
-            .imePadding()
-            .verticalScroll(rememberScrollState()),
-        contentAlignment = Alignment.Center,
+            .background(Brush.verticalGradient(listOf(colors.primaryContainer.copy(alpha = 0.35f), colors.surface, colors.surface))),
     ) {
-        Column(
-            Modifier.widthIn(max = 440.dp).fillMaxWidth().padding(24.dp).animateContentSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                Modifier.size(72.dp).background(MaterialTheme.colorScheme.primaryContainer, MaterialShapes.Cookie9Sided.toShape()),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("V", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        val wide = maxWidth >= 840.dp
+        val form = @Composable {
+            Surface(shape = MaterialTheme.shapes.extraLarge, color = colors.surfaceContainerLow, modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+                Column(Modifier.padding(24.dp).animateContentSize()) {
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(6.dp))
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                    Spacer(Modifier.height(24.dp))
+                    content()
+                }
             }
-            Spacer(Modifier.height(20.dp))
-            Text(title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(6.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(28.dp))
-            content()
+        }
+        Row(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), verticalAlignment = Alignment.CenterVertically) {
+            if (wide) Box(Modifier.weight(1f).padding(64.dp)) { Brand(large = true) }
+            Column(
+                Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                if (!wide) {
+                    Brand(large = false)
+                    Spacer(Modifier.height(28.dp))
+                }
+                form()
+            }
         }
     }
 }
@@ -148,6 +200,8 @@ fun LoginScreen(session: Session, savedServer: String, error: String?) {
     val scope = rememberCoroutineScope()
     var signup by rememberSaveable { mutableStateOf(false) }
     var server by rememberSaveable { mutableStateOf(savedServer) }
+    // A remembered server folds into one row; it only needs editing when it changes.
+    var editServer by rememberSaveable { mutableStateOf(savedServer.isBlank()) }
     var email by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
@@ -165,7 +219,7 @@ fun LoginScreen(session: Session, savedServer: String, error: String?) {
 
     AuthFrame(
         title = if (signup) "Create your account" else "Welcome back",
-        subtitle = "Where thoughts take form. Your notes are end-to-end encrypted before they leave this device.",
+        subtitle = "Your notes are end-to-end encrypted before they leave this device.",
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween), modifier = Modifier.fillMaxWidth()) {
             ToggleButton(!signup, { signup = false }, shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(), modifier = Modifier.weight(1f)) { Text("Sign in") }
@@ -173,7 +227,19 @@ fun LoginScreen(session: Session, savedServer: String, error: String?) {
         }
         Spacer(Modifier.height(20.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(
+            if (!editServer) Surface(
+                onClick = { editServer = true }, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Dns, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                        Text("Server", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(server.removePrefix("https://"), style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                    }
+                    Text("Change", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+            } else OutlinedTextField(
                 value = server, onValueChange = { server = it }, singleLine = true,
                 label = { Text("Server") }, placeholder = { Text("https://notes.example.com") },
                 supportingText = { Text("The address you open Vellune at in a browser") },
