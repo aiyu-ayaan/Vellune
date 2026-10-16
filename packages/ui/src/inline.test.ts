@@ -38,3 +38,21 @@ describe('mapOffset', () => {
     expect(mapOffset('abcdef', 'abXYef', 3)).toBe(4); // caret inside replaced range
   });
 });
+
+describe('@ mentions', () => {
+  it('triggers after whitespace only, so emails do not open it', async () => {
+    const { findTrigger } = await import('./inline');
+    expect(findTrigger('see @tom', 8)).toEqual({ kind: 'mention', start: 4, query: 'tom' });
+    expect(findTrigger('mail me@host', 12)).toBeNull();
+  });
+
+  it('resolves relative days and weekdays to journal keys', async () => {
+    const { dateMentions } = await import('./inline');
+    const fri = new Date(2026, 9, 16); // a Friday
+    expect(dateMentions('', fri).map((d) => d.key)).toEqual(['2026-10-16', '2026-10-17', '2026-10-15']);
+    expect(dateMentions('tom', fri)).toEqual([{ label: 'Tomorrow', key: '2026-10-17' }]);
+    expect(dateMentions('mon', fri)).toEqual([{ label: 'Next Monday', key: '2026-10-19' }]);
+    expect(dateMentions('fr', fri)).toEqual([{ label: 'Next Friday', key: '2026-10-23' }]);
+    expect(dateMentions('2026-12-01', fri)).toEqual([{ label: '2026-12-01', key: '2026-12-01' }]);
+  });
+});

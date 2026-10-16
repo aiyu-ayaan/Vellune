@@ -61,7 +61,7 @@ export function parseInline(src: string): InlineToken[] {
   return out;
 }
 
-export type TriggerKind = 'slash' | 'link' | 'tag';
+export type TriggerKind = 'slash' | 'link' | 'tag' | 'mention';
 export interface Trigger {
   kind: TriggerKind;
   /** Index of the trigger's first character (`/`, `[[`, or `#`). */
@@ -81,6 +81,8 @@ export function findTrigger(text: string, caret: number): Trigger | null {
   if (slash && !slash[1].startsWith(' ') && !slash[1].includes('  ')) {
     return { kind: 'slash', start: caret - slash[1].length - 1, query: slash[1] };
   }
+  const mention = /(?:^|\s)@([\p{L}\p{N}\-]{0,30})$/u.exec(before);
+  if (mention) return { kind: 'mention', start: caret - mention[1].length - 1, query: mention[1] };
   const tag = /(?:^|\s)#([\p{L}\p{N}_\-/]{0,40})$/u.exec(before);
   if (tag) return { kind: 'tag', start: caret - tag[1].length - 1, query: tag[1] };
   return null;
@@ -95,4 +97,23 @@ export function mapOffset(prev: string, next: string, i: number): number {
   if (i <= p) return i;
   if (i >= prev.length - q) return i + next.length - prev.length;
   return next.length - q; // caret was inside replaced text: put it after the replacement
+}
+
+const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+/** Journal dates an `@` query can mean: today/tomorrow/yesterday, a weekday (the next one), or YYYY-MM-DD. */
+export function dateMentions(query: string, now = new Date()): { label: string; key: string }[] {
+  const q = query.toLowerCase();
+  const at = (days: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+  const out: { label: string; key: string }[] = [];
+  for (const [label, days] of [['Today', 0], ['Tomorrow', 1], ['Yesterday', -1]] as const) if (label.toLowerCase().startsWith(q)) out.push({ label, key: dayKey(at(days)) });
+  if (q.length >= 2)
+    WEEKDAYS.forEach((w, i) => {
+      if (!w.startsWith(q)) return;
+      const ahead = ((i - now.getDay() + 7) % 7) || 7;
+      out.push({ label: `Next ${w[0].toUpperCase()}${w.slice(1)}`, key: dayKey(at(ahead)) });
+    });
+  if (/^\d{4}-\d{2}-\d{2}$/.test(q) && !Number.isNaN(Date.parse(q))) out.push({ label: q, key: q });
+  return out;
 }

@@ -51,7 +51,7 @@ import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock, todayKe
 import { store, useStore } from '../store';
 import { buildIndex } from '../links';
 import { markdownToPage } from '../markdown';
-import { TriggerKind, findTrigger, mapOffset, parseInline } from '../inline';
+import { TriggerKind, dateMentions, findTrigger, mapOffset, parseInline } from '../inline';
 import { CursorPos, RemoteCursor, sync, useSync } from '../cloud/sync';
 import { CODE_LANGUAGES, canonicalLanguage, highlightCode } from '../highlight';
 import { openContextMenu } from './ContextMenu';
@@ -818,6 +818,28 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         });
       }
       return items;
+    }
+    if (menu.kind === 'mention') {
+      const dates: Suggestion[] = dateMentions(menu.query).map((d) => ({
+        key: `d-${d.key}`,
+        label: d.label,
+        hint: new Date(`${d.key}T00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+        icon: Calendar,
+        group: 'Dates',
+        pick: () => replaceRange(menuBlock, menu.start, end, `[[${d.key}]]`),
+      }));
+      const linked = Object.values(pages)
+        .filter((p) => !p.deletedAt && !p.folder && p.title && p.title.toLowerCase().includes(q) && p.id !== page.id)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, 6)
+        .map((p): Suggestion => ({
+          key: p.id,
+          label: p.title,
+          icon: p.journal ? Calendar : FileText,
+          group: 'Pages',
+          pick: () => replaceRange(menuBlock, menu.start, end, `[[${p.title}]]`),
+        }));
+      return [...dates, ...linked];
     }
     // The tag being typed is already in the live index; it only counts if something else uses it.
     const typing = (t: string) => t.toLowerCase() === q && !page.tags.includes(t) && [...(index.tags.get(t) ?? [])].every((id) => id === page.id);
@@ -1725,7 +1747,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                       <SuggestMenu
                         items={suggestions}
                         index={Math.min(menu.index, Math.max(0, suggestions.length - 1))}
-                        label={menu.kind === 'slash' ? 'Commands' : menu.kind === 'link' ? 'Link to page' : 'Tags'}
+                        label={menu.kind === 'slash' ? 'Commands' : menu.kind === 'link' ? 'Link to page' : menu.kind === 'mention' ? 'Mention' : 'Tags'}
                         onHover={(n) => setMenu({ ...menu, index: n })}
                       />
                     )}

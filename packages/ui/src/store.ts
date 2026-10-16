@@ -192,8 +192,11 @@ class Store {
   /** Follow a wikilink: open the page it resolves to, or create it. */
   openOrCreate = (title: string, resolve: (t: string) => Page | undefined) => {
     const hit = resolve(title);
+    const t = title.trim();
     if (hit) this.open(hit.id, 'page');
-    else this.createPage(title.trim());
+    // A date link (from @today, @friday, …) becomes that day's journal page.
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(t) && !Number.isNaN(Date.parse(t))) this.createPage(t, { journal: t, tags: ['journal'] });
+    else this.createPage(t);
   };
 
   openToday = () => {
