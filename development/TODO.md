@@ -193,8 +193,8 @@ Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). It
 - [ ] **Outline panel** and table-of-contents navigation.
 - [ ] **Version history:** browse and restore past snapshots per doc.
 - [x] **Sharing:** public read-only links, invite members, per-doc permissions (E2E encrypted).
-- [x] **Comments (web):** block comment threads with replies, resolve/reopen, badge on the block, open threads in the inspector; E2E-encrypted inside the page document.
-- [ ] Comments on Android, inline (text-range) comments, notifications.
+- [x] **Comments (web + Android):** block comment threads with replies, resolve/reopen, badge on the block, open threads in the inspector; E2E-encrypted inside the page document.
+- [ ] Inline (text-range) comments, notifications.
 - [x] **Import:** several Markdown files or a whole folder (Obsidian vault); subfolders become sidebar folders.
 - [ ] **Import (rest):** Notion export, HTML, AFFiNE snapshot (where licensing and formats allow).
 - [x] **Export:** page Markdown; whole workspace as a ZIP of Markdown laid out like the sidebar.
