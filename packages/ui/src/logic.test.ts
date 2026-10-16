@@ -237,3 +237,33 @@ describe('unlinked mentions', () => {
     expect(linkMention('Vellune again', 0, 7, 'Vellune')).toBe('[[Vellune]] again');
   });
 });
+
+describe('page properties', () => {
+  it('round-trip through frontmatter with their types', () => {
+    const page = newPage('P', { props: { status: 'In progress', due: '2026-10-20', points: 3, done: false, code: '42' } });
+    const md = pageToMarkdown(page);
+    expect(md).toContain('status: In progress\n');
+    expect(md).toContain('code: "42"\n');
+    expect(markdownToPage(md, 'x').props).toEqual(page.props);
+  });
+
+  it('keeps lists, nested maps and continued scalars verbatim', () => {
+    const p = markdownToPage('---\ntitle: T\nauthors:\n  - a\nnote: first\n  second\nrating: 5\n---\nbody', 'x');
+    expect(p.props).toEqual({ rating: 5 });
+    expect(p.extraFrontmatter).toBe('authors:\n  - a\nnote: first\n  second\n');
+  });
+
+  it('merge per key in the shared document', async () => {
+    const Y = await import('yjs');
+    const { pageToDoc, docToPage } = await import('./cloud/ydoc');
+    const base = newPage('P', { props: { a: 1 } });
+    const d1 = new Y.Doc();
+    pageToDoc(d1, base);
+    const d2 = new Y.Doc();
+    Y.applyUpdate(d2, Y.encodeStateAsUpdate(d1));
+    pageToDoc(d1, { ...base, props: { a: 1, b: 'x' } });
+    pageToDoc(d2, { ...base, props: { a: 2 } });
+    Y.applyUpdate(d1, Y.encodeStateAsUpdate(d2));
+    expect(docToPage(d1)?.props).toEqual({ a: 2, b: 'x' });
+  });
+});

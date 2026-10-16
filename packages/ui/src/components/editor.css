@@ -385,3 +385,38 @@
   border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 12px; cursor: pointer;
 }
 @media (hover: hover) and (pointer: fine) { .unlinked-link:hover { background: var(--accent-light); } }
+
+/* ---------- page properties ---------- */
+.prop-value { display: inline-flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.prop-input {
+  flex: 1; min-width: 0; max-width: 280px; padding: 2px 6px; border: 1px solid transparent; border-radius: 4px;
+  background: transparent; color: var(--text-primary); font: inherit; font-size: 14px;
+}
+.prop-input:hover, .prop-input:focus { border-color: var(--border-color); background: var(--bg-secondary); outline: none; }
+.prop-remove { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; padding: 2px; border-radius: 4px; opacity: 0; }
+.property-row:hover .prop-remove, .prop-remove:focus-visible { opacity: 1; }
+@media (hover: none) { .prop-remove { opacity: 1; } }
+.prop-add-form { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.prop-kind {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border-color);
+  border-radius: 999px; background: var(--bg-primary); color: var(--text-primary); font-size: 12px; cursor: pointer;
+}
+.prop-kind:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------- database view ---------- */
+.db-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.db-search { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid var(--border-color); border-radius: var(--radius); color: var(--text-muted); }
+.db-search input { border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 14px; width: 140px; outline: none; }
+.db-group { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+.db-group select { font: inherit; font-size: 13px; padding: 3px 6px; border-radius: var(--radius); border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); }
+.db-sort { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; padding: 0; }
+.db-title { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 0; font: inherit; font-weight: 500; color: var(--text-primary); cursor: pointer; text-align: left; }
+@media (hover: hover) and (pointer: fine) { .db-title:hover { text-decoration: underline; } }
+.db-prop .prop-input { max-width: 180px; }
+.db-empty { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+@media (hover: hover) and (pointer: fine) { .db-empty:hover { background: var(--bg-hover); } }
+.kanban-col.droppable { outline: 1px dashed var(--border-color); outline-offset: -1px; }
+.kanban-add {
+  display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px; border-radius: 6px;
+  border: 1px dashed var(--border-color); background: transparent; color: var(--text-muted); font-size: 0.8rem; cursor: pointer;
+}

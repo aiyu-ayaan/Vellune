@@ -790,6 +790,7 @@ private fun InfoSection(app: Vellune, nav: AppState, page: Page, index: LinkInde
                         }
                     }
                 }
+                PropsEditor(page.props) { p -> ws.updatePage(page.id) { it.copy(props = p) } }
                 Prop("Created") { Text(DateUtils.formatDateTime(ctx, page.createdAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME), style = MaterialTheme.typography.bodyMedium) }
                 Prop("Updated") { Text(DateUtils.formatDateTime(ctx, page.updatedAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME), style = MaterialTheme.typography.bodyMedium) }
                 val words = remember(page.blocks) { page.blocks.sumOf { b -> b.text.split(Regex("\\s+")).count { it.isNotBlank() } } }

@@ -2,7 +2,7 @@
 // preservation, fenced code, and HTML-comment sidecars for content Markdown cannot express.
 
 import { isTableSeparator, markdownToTable, tableToMarkdown } from './table';
-import { Block, Page, newBlock, newPage } from './model';
+import { Block, Page, PropValue, newBlock, newPage } from './model';
 
 export interface WikiLink {
   target: string;
@@ -135,6 +135,11 @@ export function pageToMarkdown(page: Page): string {
   ] as const) {
     if (items.length) yaml += `${key}:\n${items.map((i) => `  - ${yamlScalar(i)}\n`).join('')}`;
   }
+  for (const [k, v] of Object.entries(page.props ?? {})) {
+    // Strings that read as numbers or booleans are quoted so they come back as strings.
+    const s = typeof v !== 'string' ? String(v) : /^(true|false|-?\d+(\.\d+)?)$/.test(v) ? `"${v}"` : yamlScalar(v);
+    yaml += `${k}: ${s}\n`;
+  }
   if (page.extraFrontmatter) yaml += page.extraFrontmatter.endsWith('\n') ? page.extraFrontmatter : `${page.extraFrontmatter}\n`;
 
   const parts = page.blocks.filter((b) => b.kind === 'code' || b.kind === 'divider' || b.kind === 'table' || (b.kind === 'image' && b.src) || b.text !== '').map(renderBlock);
@@ -152,6 +157,7 @@ export function pageToMarkdown(page: Page): string {
 interface ParsedFrontmatter {
   title?: string;
   icon?: string;
+  props: Record<string, PropValue>;
   tags: string[];
   aliases: string[];
   extra: string;
@@ -166,14 +172,16 @@ function unquote(s: string): string {
 // shortcut: reads top-level title/tags/aliases with flat lists only; other keys pass through
 // verbatim in `extra`. Upgrade to a YAML parser when nested properties need editing.
 function parseFrontmatter(yaml: string): ParsedFrontmatter {
-  const fm: ParsedFrontmatter = { tags: [], aliases: [], extra: '' };
+  const fm: ParsedFrontmatter = { tags: [], aliases: [], props: {}, extra: '' };
   let listKey: 'tags' | 'aliases' | null = null;
   let skipping = false;
   const push = (key: 'tags' | 'aliases', v: string) => {
     const item = unquote(v);
     if (item) fm[key].push(key === 'tags' ? item.replace(/^#/, '') : item);
   };
-  for (const line of yaml.split('\n')) {
+  const lines = yaml.split('\n');
+  const childAt = (i: number) => i < lines.length && (/^\s+\S/.test(lines[i]) || /^-\s/.test(lines[i]));
+  for (const [li, line] of lines.entries()) {
     const isChild = /^\s+\S/.test(line) || /^-\s/.test(line);
     if (isChild) {
       const item = /^\s*-\s+(.*)$/.exec(line);
@@ -199,6 +207,12 @@ function parseFrontmatter(yaml: string): ParsedFrontmatter {
       if (!value) listKey = norm;
       else if (value.startsWith('[') && value.endsWith(']')) value.slice(1, -1).split(',').forEach((v) => push(norm, v));
       else push(norm, value);
+    } else if (value && !childAt(li + 1) && !/^[[{|>&*!]/.test(value) && /^[\p{L}\p{N}_][\p{L}\p{N}_ -]*$/u.test(key)) {
+      // A plain scalar becomes a typed property; lists, maps and block scalars stay verbatim.
+      const quoted = /^["']/.test(value);
+      const v = unquote(value);
+      fm.props[key] = quoted ? v : v === 'true' ? true : v === 'false' ? false : /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v;
+      skipping = true;
     } else {
       fm.extra += `${line}\n`;
     }
@@ -303,7 +317,7 @@ function parseBlocks(body: string): { blocks: Block[]; canvas?: Page['canvas'] }
 /** Parse a Markdown file into a new page. `fallbackTitle` is usually the file name. */
 export function markdownToPage(markdown: string, fallbackTitle: string): Page {
   let body = markdown.replace(/\r\n/g, '\n');
-  let fm: ParsedFrontmatter = { tags: [], aliases: [], extra: '' };
+  let fm: ParsedFrontmatter = { tags: [], aliases: [], props: {}, extra: '' };
   if (body.startsWith('---\n')) {
     const end = body.slice(4).search(/^(---|\.\.\.)\s*$/m);
     if (end >= 0) {
@@ -314,6 +328,7 @@ export function markdownToPage(markdown: string, fallbackTitle: string): Page {
   const { blocks, canvas } = parseBlocks(body);
   return newPage(fm.title || fallbackTitle, {
     icon: fm.icon,
+    props: Object.keys(fm.props).length ? fm.props : undefined,
     blocks: blocks.length ? blocks : [newBlock()],
     tags: fm.tags,
     aliases: fm.aliases,

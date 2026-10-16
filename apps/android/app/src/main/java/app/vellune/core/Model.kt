@@ -71,6 +71,8 @@ data class Page(
     val journal: String? = null,
     val canvas: Canvas = Canvas(),
     val extraFrontmatter: String? = null,
+    /** Typed properties (String, Double or Boolean values), merged per key; shared with the web. */
+    val props: Map<String, Any> = emptyMap(),
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,
     val deletedAt: Long? = null,
@@ -169,6 +171,15 @@ fun pageFromJson(o: JSONObject, favorite: Boolean = false): Page {
             strokes = if (strokes == null) emptyList() else List(strokes.length()) { strokeFromJson(strokes.getJSONObject(it)) },
         ),
         extraFrontmatter = o.optStr("extraFrontmatter"),
+        props = o.optJSONObject("props")?.let { p ->
+            p.keys().asSequence().mapNotNull { k ->
+                when (val v = p.get(k)) {
+                    is Boolean, is String -> k to v
+                    is Number -> k to v.toDouble()
+                    else -> null
+                }
+            }.toMap()
+        }.orEmpty(),
         createdAt = o.optLng("createdAt") ?: System.currentTimeMillis(),
         updatedAt = o.optLng("updatedAt") ?: System.currentTimeMillis(),
         deletedAt = o.optLng("deletedAt"),
@@ -191,6 +202,9 @@ fun Page.toJson() = JSONObject().apply {
         put("strokes", JSONArray().also { a -> canvas.strokes.forEach { a.put(it.toJson()) } })
     })
     extraFrontmatter?.let { put("extraFrontmatter", it) }
+    if (props.isNotEmpty()) put("props", JSONObject().also { o ->
+        props.forEach { (k, v) -> o.put(k, if (v is Double && v % 1.0 == 0.0) v.toLong() else v) }
+    })
     put("createdAt", createdAt); put("updatedAt", updatedAt)
     deletedAt?.let { put("deletedAt", it) }; parentId?.let { put("parentId", it) }
     folder?.let { put("folder", it) }; order?.let { put("order", if (it % 1.0 == 0.0) it.toLong() else it) }

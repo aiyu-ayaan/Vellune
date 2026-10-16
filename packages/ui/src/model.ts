@@ -19,6 +19,12 @@ export interface Block {
   indent?: number;
 }
 
+export type PropValue = string | number | boolean;
+export type PropKind = 'text' | 'number' | 'checkbox' | 'date';
+
+export const propKind = (v: PropValue | undefined): PropKind =>
+  typeof v === 'boolean' ? 'checkbox' : typeof v === 'number' ? 'number' : typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? 'date' : 'text';
+
 export type CanvasItemType = 'note' | 'sticky' | 'embed';
 
 /** Positioned item on a page's edgeless canvas. `note` is the page's own document. */
@@ -55,7 +61,12 @@ export interface Page {
   favorite: boolean;
   journal?: string; // YYYY-MM-DD for daily notes
   canvas: { items: CanvasItem[]; strokes: Stroke[] };
-  /** Imported frontmatter minus title/tags/aliases, re-emitted on export. */
+  /**
+   * Typed properties shown in Info and as database columns, exported as frontmatter scalars.
+   * The kind follows the value: boolean = checkbox, number, YYYY-MM-DD = date, other string = text.
+   */
+  props?: Record<string, PropValue>;
+  /** Imported frontmatter minus title/tags/aliases/props, re-emitted on export. */
   extraFrontmatter?: string;
   createdAt: number;
   updatedAt: number;

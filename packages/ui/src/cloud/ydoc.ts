@@ -3,7 +3,7 @@
 // per field, and per character instead of last-writer-wins on the whole page.
 
 import * as Y from 'yjs';
-import { Block, CanvasItem, Page, Stroke } from '../model';
+import { Block, CanvasItem, Page, PropValue, Stroke } from '../model';
 
 export const LOCAL = Symbol('local');
 
@@ -78,6 +78,12 @@ export function pageToDoc(doc: Y.Doc, page: Page) {
     });
     if (yblocks.length > page.blocks.length) yblocks.delete(page.blocks.length, yblocks.length - page.blocks.length);
 
+    // Properties merge per key, so two people setting different properties never collide.
+    const props = doc.getMap<PropValue>('props');
+    const wantProps = page.props ?? {};
+    for (const k of [...props.keys()]) if (!(k in wantProps)) props.delete(k);
+    for (const [k, v] of Object.entries(wantProps)) if (props.get(k) !== v) props.set(k, v);
+
     syncKeyed(doc.getMap<CanvasItem>('canvasItems'), page.canvas.items);
     syncKeyed(doc.getMap<Stroke>('strokes'), page.canvas.strokes);
   }, LOCAL);
@@ -115,6 +121,7 @@ export function docToPage(doc: Y.Doc): Page | null {
     parentId: m.parentId,
     folder: m.folder,
     order: m.order,
+    props: doc.getMap<PropValue>('props').size ? Object.fromEntries(doc.getMap<PropValue>('props').entries()) : undefined,
     canvas: {
       items: [...doc.getMap<CanvasItem>('canvasItems').values()],
       strokes: [...doc.getMap<Stroke>('strokes').values()],

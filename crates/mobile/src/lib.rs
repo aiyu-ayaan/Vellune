@@ -170,6 +170,7 @@ pub fn apply_page(doc: &Doc, page: &Value) -> Vec<u8> {
     let yblocks = doc.get_or_insert_array("blocks");
     let items = doc.get_or_insert_map("canvasItems");
     let strokes = doc.get_or_insert_map("strokes");
+    let props = doc.get_or_insert_map("props");
     let mut txn = doc.transact_mut();
 
     if let Some(id) = page.get("id") {
@@ -251,6 +252,19 @@ pub fn apply_page(doc: &Doc, page: &Value) -> Vec<u8> {
         yblocks.remove_range(&mut txn, n, len - n);
     }
 
+    // Typed properties merge per key (see packages/ui/src/cloud/ydoc.ts).
+    let empty_props = Map::new();
+    let want = page.get("props").and_then(Value::as_object).unwrap_or(&empty_props);
+    let stale: Vec<String> = props.keys(&txn).filter(|k| !want.contains_key(*k)).map(str::to_string).collect();
+    for k in stale {
+        props.remove(&mut txn, &k);
+    }
+    for (k, v) in want {
+        if !same(props.get(&txn, k).map(|o| out_json(&txn, &o)), v) {
+            props.insert(&mut txn, k.as_str(), to_any(v));
+        }
+    }
+
     let canvas = page.get("canvas");
     let list = |k: &str| canvas.and_then(|c| c.get(k)).and_then(Value::as_array).cloned().unwrap_or_default();
     sync_keyed(&mut txn, &items, &list("items"));
@@ -269,6 +283,7 @@ pub fn doc_to_page(doc: &Doc) -> Option<Value> {
     let yblocks = doc.get_or_insert_array("blocks");
     let items = doc.get_or_insert_map("canvasItems");
     let strokes = doc.get_or_insert_map("strokes");
+    let props = doc.get_or_insert_map("props");
     let txn = doc.transact();
     let id = meta.get(&txn, "id").map(|o| out_json(&txn, &o)).filter(Value::is_string)?;
 
@@ -309,6 +324,11 @@ pub fn doc_to_page(doc: &Doc) -> Option<Value> {
         .collect();
     page.insert("blocks".into(), Value::Array(blocks));
 
+    if props.len(&txn) > 0 {
+        let p: Map<String, Value> = props.iter(&txn).map(|(k, o)| (k.to_string(), out_json(&txn, &o))).collect();
+        page.insert("props".into(), Value::Object(p));
+    }
+
     let values = |m: &MapRef| -> Vec<Value> { m.iter(&txn).map(|(_, o)| out_json(&txn, &o)).collect() };
     let mut canvas = Map::new();
     canvas.insert("items".into(), Value::Array(values(&items)));
@@ -323,7 +343,7 @@ mod tests {
     use serde_json::json;
 
     fn page(blocks: Value) -> Value {
-        json!({ "id": "p1", "title": "Hello", "icon": "✈️", "tags": ["a"], "aliases": [], "favorite": true,
+        json!({ "id": "p1", "title": "Hello", "icon": "✈️", "props": { "status": "Doing", "points": 3, "done": true }, "tags": ["a"], "aliases": [], "favorite": true,
                 "createdAt": 1712345678901i64, "updatedAt": 1712345678901i64, "blocks": blocks,
                 "canvas": { "items": [{ "id": "n", "type": "note", "x": 0, "y": 0, "w": 640, "h": 400 }],
                             "strokes": [{ "id": "s", "points": [1, 2, 0.5], "color": "#000", "width": 2 }] } })
@@ -337,6 +357,7 @@ mod tests {
         let back = doc_to_page(&doc).unwrap();
         assert_eq!(back["title"], "Hello");
         assert_eq!(back["icon"], "✈️");
+        assert_eq!(back["props"], json!({ "status": "Doing", "points": 3, "done": true }));
         assert_eq!(back["createdAt"], json!(1712345678901i64));
         assert_eq!(back["blocks"][0]["text"], "Title 😀");
         assert_eq!(back["blocks"][0]["level"], json!(1));

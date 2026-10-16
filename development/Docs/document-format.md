@@ -85,7 +85,7 @@ An `image` block keeps its alt text in `text` and the picture in `src`, one of:
 
 Markdown export writes `src` as-is, so `vblob:` images export as references, not files (known limitation until export bundles attachments).
 
-Pages also carry tree metadata, synced in the page's Yjs `meta` map: `parentId` (containing folder or parent doc; unknown parent = root), `folder` (a sidebar folder: no content, excluded from links, graph, search, and databases), and `order` (manual sibling order). `icon` is an optional emoji shown before the title (exported as frontmatter `icon:`); `mode: "edgeless"` makes a page open on its canvas. `favorite` stays per-device and `seeded` (untouched starter page) is never synced.
+Pages also carry tree metadata, synced in the page's Yjs `meta` map: `parentId` (containing folder or parent doc; unknown parent = root), `folder` (a sidebar folder: no content, excluded from links, graph, search, and databases), and `order` (manual sibling order). `props` holds typed properties (text, number, checkbox, `YYYY-MM-DD` date) in a separate Yjs map that merges per key, exported as frontmatter scalars (ADR 0004). `icon` is an optional emoji shown before the title (exported as frontmatter `icon:`); `mode: "edgeless"` makes a page open on its canvas. `favorite` stays per-device and `seeded` (untouched starter page) is never synced.
 
 Block text holds inline Markdown (`**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `[label](https://…)`, `[[wikilinks]]`, `#tags`), stored verbatim and rendered by `packages/ui/src/inline.ts`.
 

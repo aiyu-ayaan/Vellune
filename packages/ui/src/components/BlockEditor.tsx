@@ -45,6 +45,8 @@ import { uploadBlob } from '../cloud/blobs';
 import { BlobImage } from './BlobImage';
 import { IconPicker } from './PageIcon';
 import { TableBlock } from './TableBlock';
+import { PropsEditor } from './PropsEditor';
+import { textValues } from '../props';
 import { emptyTable } from '../table';
 import { instantiate, isTemplate } from '../templates';
 import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock, todayKey } from '../model';
@@ -508,6 +510,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
     el.classList.add('flash');
     setTimeout(() => el.classList.remove('flash'), 1600);
   }, [page.id]);
+  const propSuggestions = useMemo(() => textValues(Object.values(pages).filter((p) => !p.deletedAt)), [pages]);
   const allTags = useMemo(() => [...new Set([...index.tags.keys(), ...page.tags])].sort(), [index, page.tags]);
 
   // Place the caret after React has rendered the textarea for the newly active block.
@@ -1463,6 +1466,7 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
                     </datalist>
                   </div>
                 </div>
+                <PropsEditor props={page.props ?? {}} suggestions={propSuggestions} onChange={(props) => store.updatePage(page.id, (p) => ({ ...p, props }))} />
                 {page.journal && (
                   <div className="property-row">
                     <span className="property-label"><Calendar size={14} aria-hidden="true" /> Journal</span>
