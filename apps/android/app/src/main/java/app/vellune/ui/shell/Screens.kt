@@ -258,7 +258,7 @@ fun HomeScreen(ws: Workspace, pages: Map<String, Page>, nav: AppState, onMenu: (
                 item(span = StaggeredGridItemSpan.FullLine) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(pinned, key = { it.id }) { p ->
-                            AssistChip({ nav.open(p.id) }, { Text(p.displayTitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            AssistChip({ nav.open(p.id) }, { Text(p.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 leadingIcon = { Icon(if (p.isEdgeless) Icons.Outlined.Dashboard else Icons.Outlined.Description, null, Modifier.size(AssistChipDefaults.IconSize)) },
                                 shape = CircleShape)
                         }
@@ -314,7 +314,7 @@ private fun PageCard(p: Page, modifier: Modifier, onClick: () -> Unit) {
             }
         }
         Column(Modifier.padding(16.dp)) {
-            Text(p.displayTitle, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(p.label, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val ex = p.excerpt()
             if (ex.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
@@ -431,7 +431,7 @@ fun SearchDialog(pages: Map<String, Page>, onDismiss: () -> Unit, onOpen: (Strin
                     }
                     items(hits, key = { it.id }) { p ->
                         ListItem(
-                            headlineContent = { Text(p.displayTitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            headlineContent = { Text(p.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = p.excerpt(120).takeIf { it.isNotEmpty() }?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
                             leadingContent = { Icon(if (p.isEdgeless) Icons.Outlined.Dashboard else Icons.Outlined.Description, null) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),

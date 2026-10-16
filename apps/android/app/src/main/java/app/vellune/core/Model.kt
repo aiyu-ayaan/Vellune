@@ -110,6 +110,8 @@ data class Page(
     val isFolder get() = folder == true
     val isEdgeless get() = mode == "edgeless"
     val displayTitle get() = title.ifBlank { "Untitled" }
+    /** Title with the page's emoji in front, for lists and cards. */
+    val label get() = listOfNotNull(icon, displayTitle).joinToString(" ")
 }
 
 fun newId(): String = UUID.randomUUID().toString()
