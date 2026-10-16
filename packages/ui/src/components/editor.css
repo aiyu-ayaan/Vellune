@@ -420,3 +420,18 @@
   display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px; border-radius: 6px;
   border: 1px dashed var(--border-color); background: transparent; color: var(--text-muted); font-size: 0.8rem; cursor: pointer;
 }
+
+/* ---------- print / save as PDF: just the page ---------- */
+@media print {
+  .sidebar, .sidebar-backdrop, .topbar, .inspector-panel, .doc-outline, .block-handle-wrap, .doc-info,
+  .doc-add-icon, .blocks-tail, .code-toolbar, .table-add-col, .table-add-row, .toggle-empty, .format-bar,
+  .canvas-toolbar, .canvas-palette, .read-only-badge, .titlebar { display: none !important; }
+  html, body, #root, .vellune-container, .main-content, .workspace-body, .editor-scroll-area {
+    height: auto !important; overflow: visible !important; background: #fff !important; color: #000 !important;
+  }
+  .vellune-container { display: block !important; }
+  .editor-center { padding-top: 0 !important; max-width: none !important; }
+  .block-row { margin-left: 0 !important; break-inside: avoid; }
+  .wikilink-tag, .inline-link, .inline-tag { color: #000 !important; text-decoration: underline; }
+  .block-code .block-content, .block-callout .block-content { border: 1px solid #ccc; }
+}

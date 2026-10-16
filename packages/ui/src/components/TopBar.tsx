@@ -8,6 +8,7 @@ import {
   Lock,
   MoreHorizontal,
   PanelLeft,
+  Printer,
   PanelRight,
   Star,
   Trash2,
@@ -200,6 +201,18 @@ export const TopBar: React.FC<{
                   <div className="more-menu" role="menu">
                     <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); setHistoryOpen(true); }}>
                       <History size={15} aria-hidden="true" /> Version history
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        // Print from the page view so the document, not the canvas, is what prints.
+                        if (view !== 'page') store.setView('page');
+                        setTimeout(() => print(), 50);
+                      }}
+                    >
+                      <Printer size={15} aria-hidden="true" /> Print / save as PDF
                     </button>
                     <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); handleExport(); }}>
                       <Download size={15} aria-hidden="true" /> Export page as Markdown
