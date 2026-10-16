@@ -16,6 +16,7 @@ import { sync } from './cloud/sync';
 import { Trash2, Undo } from 'lucide-react';
 import './theme';
 import './styles.css';
+import './components/editor.css';
 
 const navigate = (path: string) => {
   history.pushState(null, '', path);

@@ -96,6 +96,15 @@
 - [x] Notion block colors (9 text and 9 background colors) via the block handle menu, with "Turn into" and Delete.
 - [x] Subtle motion (popover pop-in, hover, checkbox) that respects `prefers-reduced-motion`.
 
+### Milestone 3d: AFFiNE editor parity
+- [x] AFFiNE-style shell: sidebar (search, journals, favorites, docs, tags, trash), top bar (page/edgeless toggle, more menu, blue Share).
+- [x] Live-preview blocks: rendered inline Markdown; clicking a block edits it in place with the caret where you clicked.
+- [x] `/` command menu (text, headings 1–4, lists, to-do, quote, callout, code, divider, link to page, new linked page, tag, date/time).
+- [x] `[[` page suggestions with "Create page", `#` tag suggestions with "Create tag".
+- [x] Numbered list and callout blocks (Markdown round-trip), Enter splits / Backspace merges, Ctrl/Cmd+B/I/E and Ctrl/Cmd+Shift+S formatting, Markdown paste becomes blocks, drag-to-reorder plus Move up/down and Duplicate.
+- [x] Collapsible page Info (tags, journal date, created, updated, backlinks, words) and a heading outline rail.
+- [ ] Sidebar collapse button, page icons, nested pages/folders ("Organize"), inline formatting toolbar on selection, `@` mentions, images/attachments.
+
 ---
 
 ### Milestone 4: Infinite Canvas & Whiteboard MVP
@@ -151,7 +160,7 @@ Expose a workspace to AI agents via the [Model Context Protocol](https://modelco
 Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). Items already covered by MVP milestones are not repeated.
 - [ ] **Page ↔ Edgeless mode:** every doc switchable between document view and whiteboard view of the same blocks.
 - [ ] **Rich blocks:** bulleted/numbered/toggle lists, quotes, callouts, dividers, tables, LaTeX math, bookmarks/link previews, embeds (YouTube, Figma, GitHub), attachments, images with captions.
-- [ ] **Slash menu and inline toolbar:** `/` block insertion, inline formatting, `@` mentions for pages and dates.
+- [ ] **Slash menu and inline toolbar:** ~~`/` block insertion~~ (done, 3d); inline formatting toolbar, `@` mentions for pages and dates.
 - [ ] **Linked and synced docs:** inline doc links, embedded linked-doc cards, synced (live-transcluded) blocks.
 - [ ] **Databases:** table and kanban views, typed properties (text, number, select, multi-select, date, checkbox, link), filters, sorts, grouping.
 - [ ] **Doc properties:** typed page metadata panel, mapped to frontmatter on export.

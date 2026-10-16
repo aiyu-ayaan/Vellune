@@ -2,7 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { Page } from '../model';
 import { openPublicPage } from '../cloud/sync';
+import { parseInline } from '../inline';
 import './cloud.css';
+
+/** Inline marks for readers; wikilinks show as text because linked pages are not public. */
+const rich = (text: string) =>
+  parseInline(text).map((t, k) => {
+    if (t.type === 'bold') return <strong key={k}>{t.text}</strong>;
+    if (t.type === 'italic') return <em key={k}>{t.text}</em>;
+    if (t.type === 'strike') return <s key={k}>{t.text}</s>;
+    if (t.type === 'code') return <code key={k}>{t.text}</code>;
+    if (t.type === 'link' || t.type === 'url') return <a key={k} href={t.href} target="_blank" rel="noopener noreferrer nofollow">{t.text}</a>;
+    return <React.Fragment key={k}>{t.text}</React.Fragment>;
+  });
 
 /** Read-only, live-updating view of a published page at /share/{id}#k={key}. */
 export const PublicPage: React.FC<{ pageId: string; rawKey: string }> = ({ pageId, rawKey }) => {
@@ -39,29 +51,37 @@ export const PublicPage: React.FC<{ pageId: string; rawKey: string }> = ({ pageI
         {page && (
           <>
             <h1 className="title">{page.title || 'Untitled'}</h1>
-            {page.blocks.map((b) => {
+            {page.blocks.map((b, i) => {
+              const t = rich(b.text);
               const cls = `block${b.color ? ` nc-${b.color}` : ''}`;
               switch (b.kind) {
                 case 'heading': {
                   const H = `h${Math.min(3, Math.max(1, b.level ?? 1)) + 1}` as 'h2' | 'h3' | 'h4';
-                  return <H key={b.id} className={cls}>{b.text}</H>;
+                  return <H key={b.id} className={cls}>{t}</H>;
                 }
                 case 'todo':
                   return (
                     <div key={b.id} className={cls}>
-                      <input type="checkbox" checked={!!b.checked} readOnly aria-label={b.checked ? 'Done' : 'Not done'} /> {b.text}
+                      <input type="checkbox" checked={!!b.checked} readOnly aria-label={b.checked ? 'Done' : 'Not done'} /> {t}
                     </div>
                   );
                 case 'bullet':
-                  return <div key={b.id} className={cls}>• {b.text}</div>;
+                  return <div key={b.id} className={cls}>• {t}</div>;
+                case 'numbered': {
+                  let n = 1;
+                  while (page.blocks[i - n]?.kind === 'numbered') n++;
+                  return <div key={b.id} className={cls}>{n}. {t}</div>;
+                }
                 case 'quote':
-                  return <blockquote key={b.id} className={cls}>{b.text}</blockquote>;
+                  return <blockquote key={b.id} className={cls}>{t}</blockquote>;
+                case 'callout':
+                  return <aside key={b.id} className={`${cls} public-callout`}>{t}</aside>;
                 case 'code':
                   return <pre key={b.id}><code>{b.text}</code></pre>;
                 case 'divider':
                   return <hr key={b.id} />;
                 default:
-                  return <p key={b.id} className={cls}>{b.text}</p>;
+                  return <p key={b.id} className={cls}>{t}</p>;
               }
             })}
           </>
