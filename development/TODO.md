@@ -86,7 +86,7 @@
 - [ ] Multi-instance fan-out (Redis pub/sub) and distributed rate limits.
 - [ ] Desktop (Tauri) sync transport (token-based; the webview origin cannot use the session cookie).
 - [ ] Encrypt OAuth client secrets at rest.
-- [ ] Edgeless canvas is not read-only for viewers yet; the server rejects their pushes, but their local view can diverge.
+- [x] Edgeless canvas is read-only for viewers on the web (tools disabled, pan only).
 - [ ] Newly shared pages appear for the recipient after the next page-list refresh (reconnect or reload), not instantly.
 
 ---
@@ -117,14 +117,16 @@
 - [x] Custom right-click menus (sidebar rows, blocks); native menu only in text fields.
 - [x] URLs per page: `/doc/{uuid}`, `/doc/{uuid}/edgeless`, `/graph`, `/databases?tag=`, `/trash`, block links `#b-{id}`; Back/Forward work.
 - [x] Fixed: second device duplicated starter pages; quick reload could revert the last edit (page cache vs Yjs race).
-- [ ] Sidebar collapse button, page icons, inline formatting toolbar on selection, `@` mentions, images/attachments.
+- [x] Sidebar collapse button (Ctrl/Cmd+\\, drawer below 900px), page icons (web + Android), formatting bar on selection, images.
+- [ ] `@` mentions, non-image attachments.
 - [ ] Share a folder with its subtree; history snapshots before log compaction.
 
 ---
 
 ### Milestone 4: Infinite Canvas & Whiteboard MVP
-- [ ] Implement canvas rendering surface with smooth pan and zoom in React.
-- [ ] Support canvas element types: sticky notes, text blocks, shapes, and embedded page cards.
+- [x] Canvas rendering surface with pan and cursor-anchored zoom (Ctrl+wheel, trackpad pinch) in React.
+- [x] Sticky notes, embedded page cards, the page's note card; pen, highlighter, shapes (line, arrow, rectangle, ellipse; same stroke geometry as Android), eraser, undo/redo, delete selected.
+- [ ] Text blocks and connectors on the canvas; multi-select and grouping.
 - [ ] Spatial bounding box queries (`BoundingBox::intersects`) for virtualized viewport rendering.
 
 ---
@@ -174,20 +176,25 @@ Expose a workspace to AI agents via the [Model Context Protocol](https://modelco
 ### Phase 4: AFFiNE Feature Parity
 Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). Items already covered by MVP milestones are not repeated.
 - [ ] **Page ↔ Edgeless mode:** every doc switchable between document view and whiteboard view of the same blocks.
-- [ ] **Rich blocks:** bulleted/numbered/toggle lists, quotes, callouts, dividers, tables, LaTeX math, bookmarks/link previews, embeds (YouTube, Figma, GitHub), attachments, images with captions.
-- [ ] **Slash menu and inline toolbar:** ~~`/` block insertion~~ (done, 3d); inline formatting toolbar, `@` mentions for pages and dates.
+- [x] **Rich blocks (part):** nested bulleted/numbered/to-do lists (Tab/Shift+Tab), toggle lists, quotes, callouts, dividers, tables (GFM round trip), images — web and Android.
+- [ ] **Rich blocks (rest):** LaTeX math, bookmarks/link previews, embeds (YouTube, Figma, GitHub), attachments, image captions.
+- [x] **Slash menu and inline toolbar:** `/` block insertion, formatting bar on selection.
+- [ ] `@` mentions for pages and dates.
 - [ ] **Linked and synced docs:** inline doc links, embedded linked-doc cards, synced (live-transcluded) blocks.
 - [ ] **Databases:** table and kanban views, typed properties (text, number, select, multi-select, date, checkbox, link), filters, sorts, grouping.
 - [ ] **Doc properties:** typed page metadata panel, mapped to frontmatter on export.
 - [ ] **Organization:** tags, collections (saved filters), favorites, folders, trash with restore.
 - [ ] **Journals:** daily notes with calendar navigation (shared with Obsidian daily notes).
-- [ ] **Templates:** page and edgeless templates, template picker.
+- [x] **Templates:** any `#template` page; `/` inserts it, Ctrl/Cmd+K creates a page from it; `{{date}}`, `{{time}}`, `{{title}}` (web + Android).
+- [ ] Edgeless templates.
 - [ ] **Edgeless tools:** frames, presentation mode, mind maps, connectors with routing, shapes, text, pen/highlighter, sticky notes, grouping, alignment, layers.
 - [ ] **Outline panel** and table-of-contents navigation.
 - [ ] **Version history:** browse and restore past snapshots per doc.
 - [x] **Sharing:** public read-only links, invite members, per-doc permissions (E2E encrypted).
 - [ ] **Comments:** inline and block comment threads with resolve.
-- [ ] **Import:** Markdown folders, Notion export, HTML, AFFiNE snapshot (where licensing and formats allow).
-- [ ] **Export:** Markdown, HTML, PDF, PNG (edgeless), workspace snapshot.
-- [ ] **Quick search** (Cmd/Ctrl + K) across docs, commands, and recent items.
+- [x] **Import:** several Markdown files or a whole folder (Obsidian vault); subfolders become sidebar folders.
+- [ ] **Import (rest):** Notion export, HTML, AFFiNE snapshot (where licensing and formats allow).
+- [x] **Export:** page Markdown; whole workspace as a ZIP of Markdown laid out like the sidebar.
+- [ ] **Export (rest):** HTML, PDF, PNG (edgeless), attachments inside the ZIP.
+- [x] **Quick search** (Cmd/Ctrl + K): full text with snippets, commands, recent pages.
 - [ ] **Optional AI assistant:** summarize, rewrite, generate mind map; off by default, never required for core editing.
