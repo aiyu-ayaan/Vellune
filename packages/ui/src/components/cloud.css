@@ -4,7 +4,7 @@
 
 /* ---------- auth ---------- */
 .auth-screen {
-  min-height: 100dvh; display: flex; align-items: flex-start; justify-content: center;
+  min-height: var(--app-height, 100dvh); display: flex; align-items: flex-start; justify-content: center;
   padding: 12vh 16px 48px; background: var(--bg-primary); color: var(--text-primary); overflow-y: auto;
 }
 .auth-card { width: 100%; max-width: 340px; display: flex; flex-direction: column; animation: auth-in 280ms var(--ease-out); }

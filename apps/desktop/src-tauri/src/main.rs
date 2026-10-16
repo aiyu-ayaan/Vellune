@@ -2,5 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    println!("Vellune Desktop Tauri application initialized.");
+    // No native menu or title bar: the window is undecorated and the web UI draws its own title bar.
+    tauri::Builder::default()
+        .run(tauri::generate_context!())
+        .expect("error while running Vellune");
 }

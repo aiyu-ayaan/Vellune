@@ -174,7 +174,7 @@ button, input, textarea { font-family: inherit; color: inherit; }
 
 ::selection { background: rgba(35, 131, 226, 0.28); }
 
-.vellune-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
+.vellune-container { display: flex; height: var(--app-height, 100vh); width: 100vw; overflow: hidden; position: relative; }
 
 /* ---------- Sidebar ---------- */
 .sidebar {

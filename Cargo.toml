@@ -17,6 +17,8 @@ members = [
     "services/sync",
     "services/workers",
 ]
+# The desktop shell builds on its own (Tauri pulls in WebKitGTK); keep it out of `cargo check`.
+exclude = ["apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

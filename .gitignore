@@ -57,3 +57,4 @@ skills-lock.json
 
 
 development/Docs/notes/*.local.md
+**/src-tauri/gen/

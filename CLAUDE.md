@@ -811,7 +811,7 @@ Build fast local editing and reliable data foundations first. Add rich workspace
 - `pnpm dev:sync`: Placeholder binary; live sync currently runs inside `vellune-api` (ADR 0002).
 - `pnpm dev:workers`: Run the background workers (`cargo run -p vellune-workers`).
 - `pnpm dev:web`: Run the web frontend dev server via Vite (`pnpm --filter @vellune/web dev`).
-- `pnpm dev:desktop`: Run the desktop client dev environment (`pnpm --filter @vellune/desktop dev`).
+- `pnpm dev:desktop`: Run the desktop client's Vite server only (`pnpm --filter @vellune/desktop dev`, port 1420). To open the actual Tauri window: `pnpm --filter @vellune/desktop dev:tauri` (starts Vite itself; proxies `/api` to `127.0.0.1:8080` like the web). The window is undecorated: `apps/desktop/src/TitleBar.tsx` draws the title bar. On NVIDIA + X11, set `WEBKIT_DISABLE_DMABUF_RENDERER=1` if the window stays blank.
 - `pnpm db:up`: Start PostgreSQL 16 & Redis 7 via Docker Compose (`docker compose -f docker-compose-dev.yml up -d`).
 - `docker compose -f docker-compose-local.yml up -d --build`: compile this checkout and run web + API + PostgreSQL at `http://localhost:8080`. Run `mkdir -p data/images` first: encrypted image blobs are bind-mounted there.
 - `pnpm db:down`: Stop local dev database containers (`docker compose -f docker-compose-dev.yml down`).
