@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { searchPages } from '../search';
-import { Archive, BookOpen, Calendar, Compass, Database, FilePlus, Layout, Search } from 'lucide-react';
+import { isTemplate, pageFromTemplate } from '../templates';
+import { Archive, LayoutTemplate, BookOpen, Calendar, Compass, Database, FilePlus, Layout, Search } from 'lucide-react';
 import { download, exportWorkspace } from '../vault';
 import { store, useStore } from '../store';
 import { PageIcon } from './PageIcon';
@@ -72,6 +73,22 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       },
     },
   ];
+
+  // Templates join the commands once the query names them (or says "template").
+  const q = query.trim().toLowerCase();
+  if (q)
+    for (const t of Object.values(pages).filter(isTemplate)) {
+      if (!'template'.includes(q) && !q.includes('template') && !t.title.toLowerCase().includes(q)) continue;
+      actions.push({
+        id: `tpl-${t.id}`,
+        title: `New page from template “${t.title || 'Untitled'}”`,
+        icon: <LayoutTemplate size={16} />,
+        run: () => {
+          store.createPage('', pageFromTemplate(t, ''));
+          onClose();
+        },
+      });
+    }
 
   const totalItems = matchedPages.length + actions.length;
 

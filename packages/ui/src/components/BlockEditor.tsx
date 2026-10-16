@@ -29,6 +29,7 @@ import {
   Minus,
   Plus,
   Quote,
+  LayoutTemplate,
   Smile,
   Bold,
   Italic,
@@ -42,6 +43,7 @@ import { INLINE_MAX, isImage, prepareImage, readDataUrl } from '../image';
 import { uploadBlob } from '../cloud/blobs';
 import { BlobImage } from './BlobImage';
 import { IconPicker } from './PageIcon';
+import { instantiate, isTemplate } from '../templates';
 import { Block, BlockKind, NotionColor, NotionTextColor, Page, newBlock, todayKey } from '../model';
 import { store, useStore } from '../store';
 import { buildIndex } from '../links';
@@ -718,10 +720,34 @@ export const BlockEditor: React.FC<{ page: Page }> = ({ page }) => {
         keywords: 'time now clock',
         run: (b, c) => insert(new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }))(b, c),
       },
+      ...Object.values(pages)
+        .filter((t) => isTemplate(t) && t.id !== page.id)
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .map(
+          (t): SlashItem => ({
+            id: `tpl-${t.id}`,
+            label: t.title || 'Untitled template',
+            hint: 'Template',
+            group: 'Templates',
+            icon: LayoutTemplate,
+            keywords: `template ${t.title.toLowerCase()}`,
+            run: (block, ctx) => {
+              const blocks = instantiate(t, page.title);
+              if (!blocks.length) return;
+              // An empty block is replaced; otherwise the template goes below it.
+              update((bs) => {
+                const at = bs.findIndex((b) => b.id === block.id);
+                const keep = ctx.text.trim() ? [{ ...bs[at], text: ctx.text }] : [];
+                return [...bs.slice(0, at), ...keep, ...blocks, ...bs.slice(at + 1)];
+              });
+              focusBlock(blocks[blocks.length - 1].id);
+            },
+          }),
+        ),
     ];
     // Rebuilt per render on purpose: closures read the latest page and index.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, index]);
+  }, [page, index, pages]);
 
   const menuBlock = menu ? page.blocks.find((b) => b.id === menu.blockId) : undefined;
   const suggestions: Suggestion[] = useMemo(() => {
