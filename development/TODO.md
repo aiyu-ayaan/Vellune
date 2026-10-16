@@ -118,7 +118,7 @@
 - [x] URLs per page: `/doc/{uuid}`, `/doc/{uuid}/edgeless`, `/graph`, `/databases?tag=`, `/trash`, block links `#b-{id}`; Back/Forward work.
 - [x] Fixed: second device duplicated starter pages; quick reload could revert the last edit (page cache vs Yjs race).
 - [x] Sidebar collapse button (Ctrl/Cmd+\\, drawer below 900px), page icons (web + Android), formatting bar on selection, images.
-- [ ] `@` mentions, non-image attachments.
+- [x] `@` mentions (web + Android), file attachments (web + Android).
 - [ ] Share a folder with its subtree; history snapshots before log compaction.
 
 ---
@@ -180,7 +180,7 @@ Target: feature parity with [AFFiNE](https://github.com/toeverything/affine). It
 - [x] **Rich blocks (part):** nested bulleted/numbered/to-do lists (Tab/Shift+Tab), toggle lists, quotes, callouts, dividers, tables (GFM round trip), images — web and Android.
 - [ ] **Rich blocks (rest):** LaTeX math, bookmarks/link previews, embeds (YouTube, Figma, GitHub), attachments, image captions.
 - [x] **Slash menu and inline toolbar:** `/` block insertion, formatting bar on selection.
-- [ ] `@` mentions for pages and dates.
+- [x] `@` mentions for pages and dates.
 - [ ] **Linked and synced docs:** inline doc links, embedded linked-doc cards, synced (live-transcluded) blocks.
 - [x] **Databases:** typed page properties (text, number, checkbox, date; text acts as select), sortable/filterable table, board grouped by tag or property with drag (long-press on Android) — ADR 0004.
 - [ ] Multi-select and relation properties, saved views.
