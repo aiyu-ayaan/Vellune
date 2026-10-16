@@ -16,16 +16,32 @@
 ## 2. Authentication & Authorization
 
 ### Session Management
-- Authentication generates cryptographically secure, signed session tokens (JWT or opaque bearer tokens stored in Redis with short lifetimes).
-- Revocation of a user session immediately terminates WebSocket sync connections and invalidates cached credentials.
+- Sessions are opaque 256-bit tokens in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` on https). Only `sha256(token)` is stored in PostgreSQL; sessions last 30 days.
+- Writes require the `X-Vellune: 1` header (CSRF). WebSocket upgrades with a foreign `Origin` are treated as anonymous.
+- Revoking sessions, disabling a user, or changing their page role closes their live WebSocket connections immediately.
+- Login and prelogin are rate limited per email (in-process; move to Redis for multiple instances).
+
+### End-to-End Encryption
+See [ADR 0002](adr/0002-e2e-encrypted-sync.md) and [`api.md`](api.md).
+- The password never leaves the device. The client sends `auth_hash = HKDF(PBKDF2-SHA256(password, salt, 600k), "vellune-auth")`; the server stores `argon2id(auth_hash)`.
+- Prelogin returns a stable HMAC-derived fake salt for unknown emails, so it does not reveal which accounts exist.
+- Each account has an ECDH P-256 key pair; the private key is stored only wrapped under `HKDF(master, "vellune-vault")`. On the device it is a non-extractable `CryptoKey` in IndexedDB, wiped on sign-out.
+- Each page has its own AES-256-GCM key, wrapped per member. Titles, blocks, and canvas data exist on the server only as ciphertext.
+- Public links keep the page key in the URL fragment.
+- **Limitations:** no account recovery; public keys are trust-on-first-use (fingerprints shown, not enforced); revocation does not rotate page keys; page IDs, membership, timing, and update sizes are visible to the server.
+- OAuth client secrets are stored in plaintext in PostgreSQL and never returned by the API. Encrypt them with a KMS key before multi-tenant hosting.
 
 ### Access Control Matrix
-| Role | Read Pages | Edit Pages | Invite Members | Manage Billing / Delete Workspace |
-|---|---|---|---|---|
-| **Owner** | Yes | Yes | Yes | Yes |
-| **Admin** | Yes | Yes | Yes | No |
-| **Editor** | Yes | Yes | No | No |
-| **Viewer** | Yes | No | No | No |
+Per-page roles (implemented):
+
+| Role | Read | Edit | Share / publish / delete |
+|---|---|---|---|
+| **Owner** | Yes | Yes | Yes |
+| **Editor** | Yes | Yes | No |
+| **Viewer** | Yes | No (server rejects pushes) | No |
+| **Public link** | Yes, with the key from the link | No | No |
+
+Server admins (`users.is_admin`, first account on a fresh server) manage accounts, OAuth providers, and settings. They **cannot** read page content.
 
 ---
 
