@@ -1,19 +1,40 @@
 import React from 'react';
 import {
-  BookOpen,
   Calendar,
+  ChevronRight,
   Compass,
   Database,
-  FilePlus,
+  FileText,
   Hash,
   Moon,
+  Monitor,
+  Plus,
   Search,
   Star,
+  Sun,
   Trash2,
 } from 'lucide-react';
 import { store, useStore } from '../store';
 import { getTheme, setTheme, Theme } from '../theme';
+import { useSession } from '../cloud/session';
 import { Account } from './Account';
+import { Avatar } from './ShareMenu';
+
+const THEME_ICON = { light: Sun, dark: Moon, system: Monitor } as const;
+const NEXT_THEME: Record<Theme, Theme> = { light: 'dark', dark: 'system', system: 'light' };
+
+const Section: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <div className="side-section">
+      <button type="button" className="section-label" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <ChevronRight size={12} className={open ? 'caret open' : 'caret'} aria-hidden="true" />
+        <span>{label}</span>
+      </button>
+      {open && children}
+    </div>
+  );
+};
 
 export const Sidebar: React.FC<{ onOpenSearch: () => void; onOpenAdmin: () => void }> = ({ onOpenSearch, onOpenAdmin }) => {
   const { pages, activeId, view, databaseTag } = useStore((s) => s);
@@ -27,139 +48,124 @@ export const Sidebar: React.FC<{ onOpenSearch: () => void; onOpenAdmin: () => vo
   // Extract all unique tags
   const tags = Array.from(new Set(activePages.flatMap((p) => p.tags))).sort();
 
+  const userName = useSession((st) => st.user?.name);
+  const docActive = (id: string) => activeId === id && view !== 'graph' && view !== 'database' && view !== 'trash';
+  const docRow = (p: (typeof activePages)[number]) => (
+    <button
+      type="button"
+      key={p.id}
+      className={`page-list-item ${docActive(p.id) ? 'active' : ''}`}
+      onClick={() => store.open(p.id)}
+    >
+      <FileText size={16} aria-hidden="true" />
+      <span className="page-title-text">{p.title || 'Untitled'}</span>
+    </button>
+  );
+  const ThemeIcon = THEME_ICON[theme];
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="brand">
-          <Moon className="brand-icon" size={18} aria-hidden="true" />
+          <span className="ws-avatar" aria-hidden="true">V</span>
           <span>Vellune</span>
         </div>
-        <button
-          className="btn-icon"
-          title="New Note"
-          aria-label="New note"
-          onClick={() => store.createPage('Untitled')}
-        >
-          <FilePlus size={16} />
-        </button>
+        {userName && <Avatar name={userName} size={22} />}
       </div>
 
       <div className="sidebar-nav">
-        <button className="nav-item" onClick={onOpenSearch}>
-          <Search size={16} />
-          <span>Quick Switcher</span>
-          <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>⌘K</span>
-        </button>
+        <div className="search-row">
+          <button type="button" className="nav-item" onClick={onOpenSearch} title="Quick switcher (Ctrl+K)">
+            <Search size={16} aria-hidden="true" />
+            <span>Search</span>
+          </button>
+          <button
+            type="button"
+            className="btn-icon"
+            title="New doc"
+            aria-label="New doc"
+            onClick={() => store.createPage('Untitled')}
+          >
+            <Plus size={16} />
+          </button>
+        </div>
         <button
+          type="button"
           className={`nav-item ${view === 'page' && pages[activeId ?? '']?.journal ? 'active' : ''}`}
           onClick={() => store.openToday()}
         >
-          <Calendar size={16} />
-          <span>Daily Journal</span>
+          <Calendar size={16} aria-hidden="true" />
+          <span>Journals</span>
+        </button>
+        <button type="button" className={`nav-item ${view === 'graph' ? 'active' : ''}`} onClick={() => store.setView('graph')}>
+          <Compass size={16} aria-hidden="true" />
+          <span>Brain View</span>
         </button>
         <button
-          className={`nav-item ${view === 'graph' ? 'active' : ''}`}
-          onClick={() => store.setView('graph')}
-        >
-          <Compass size={16} />
-          <span>Brain View (Graph)</span>
-        </button>
-        <button
+          type="button"
           className={`nav-item ${view === 'database' && !databaseTag ? 'active' : ''}`}
           onClick={() => store.setDatabaseTag(null)}
         >
-          <Database size={16} />
+          <Database size={16} aria-hidden="true" />
           <span>Databases</span>
         </button>
       </div>
 
       <div className="sidebar-pages">
-        {favoritePages.length > 0 && (
-          <div style={{ marginBottom: '1rem' }}>
-            <div className="section-label">
-              <span>Favorites</span>
-              <Star size={12} />
+        <Section label="Favorites">
+          {favoritePages.length > 0 ? (
+            favoritePages.map(docRow)
+          ) : (
+            <div className="side-empty">
+              <span className="side-empty-icon"><Star size={12} aria-hidden="true" /></span>
+              No favorites
             </div>
-            {favoritePages.map((p) => (
-              <div
-                key={p.id}
-                className={`page-list-item ${activeId === p.id && view !== 'graph' && view !== 'database' && view !== 'trash' ? 'active' : ''}`}
-                onClick={() => store.open(p.id)}
-              >
-                <span className="page-title-text">{p.title || 'Untitled'}</span>
-              </div>
-            ))}
-          </div>
-        )}
+          )}
+        </Section>
 
-        <div style={{ marginBottom: '1rem' }}>
-          <div className="section-label">
-            <span>Notes</span>
-            <BookOpen size={12} />
-          </div>
-          {regularPages.map((p) => (
-            <div
-              key={p.id}
-              className={`page-list-item ${activeId === p.id && view !== 'graph' && view !== 'database' && view !== 'trash' ? 'active' : ''}`}
-              onClick={() => store.open(p.id)}
-            >
-              <span className="page-title-text">{p.title || 'Untitled'}</span>
-            </div>
-          ))}
-        </div>
+        <Section label="Docs">{regularPages.map(docRow)}</Section>
 
         {tags.length > 0 && (
-          <div style={{ marginBottom: '1rem' }}>
-            <div className="section-label">
-              <span>Tags</span>
-              <Hash size={12} />
-            </div>
+          <Section label="Tags">
             {tags.map((tag) => (
-              <div
+              <button
+                type="button"
                 key={tag}
                 className={`page-list-item ${view === 'database' && databaseTag === tag ? 'active' : ''}`}
                 onClick={() => store.setDatabaseTag(tag)}
               >
-                <span className="page-title-text">#{tag}</span>
-              </div>
+                <Hash size={16} aria-hidden="true" />
+                <span className="page-title-text">{tag}</span>
+              </button>
             ))}
-          </div>
+          </Section>
         )}
 
         {trashedCount > 0 && (
-          <div>
-            <div
-              className={`page-list-item ${view === 'trash' ? 'active' : ''}`}
-              onClick={() => store.setView('trash')}
-              style={{ color: 'var(--text-muted)' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Trash2 size={14} />
-                <span>Trash ({trashedCount})</span>
-              </div>
-            </div>
-          </div>
+          <Section label="Others">
+            <button type="button" className={`page-list-item ${view === 'trash' ? 'active' : ''}`} onClick={() => store.setView('trash')}>
+              <Trash2 size={16} aria-hidden="true" />
+              <span className="page-title-text">Trash ({trashedCount})</span>
+            </button>
+          </Section>
         )}
       </div>
 
-      <Account onOpenAdmin={onOpenAdmin} />
-      <div className="sidebar-footer">
-        <div className="theme-toggle" role="group" aria-label="Theme">
-          {(['light', 'dark', 'system'] as Theme[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-pressed={theme === t}
-              onClick={() => {
-                setTheme(t);
-                setThemeState(t);
-              }}
-            >
-              {t === 'light' ? 'Light' : t === 'dark' ? 'Dark' : 'System'}
-            </button>
-          ))}
-        </div>
-        <span>v0.1.0</span>
+      <div className="sidebar-bottom">
+        <Account onOpenAdmin={onOpenAdmin} />
+        <button
+          type="button"
+          className="btn-icon"
+          title={`Theme: ${theme} (click for ${NEXT_THEME[theme]})`}
+          aria-label={`Theme: ${theme}. Switch to ${NEXT_THEME[theme]}`}
+          onClick={() => {
+            const n = NEXT_THEME[theme];
+            setTheme(n);
+            setThemeState(n);
+          }}
+        >
+          <ThemeIcon size={16} />
+        </button>
       </div>
     </aside>
   );

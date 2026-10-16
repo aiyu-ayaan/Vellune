@@ -43,7 +43,7 @@ export const RightSidebar: React.FC<{ page: Page }> = ({ page }) => {
                 <div className="backlink-title">{source.title || 'Untitled'}</div>
                 {bl.context && (
                   <div className="backlink-context" title={bl.context}>
-                    {bl.context}
+                    {bl.context.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, a: string, b?: string) => b ?? a)}
                   </div>
                 )}
               </div>

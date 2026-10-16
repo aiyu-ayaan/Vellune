@@ -1,8 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Download,
   FileText,
   Layout,
+  Lock,
+  MoreHorizontal,
   PanelRight,
   Star,
   Trash2,
@@ -20,10 +22,17 @@ const SyncStatus: React.FC = () => {
   const pending = useSync((s) => s.pending);
   if (status !== 'ready') return null;
   const label =
-    connection === 'online' ? (pending ? 'Syncing…' : 'Synced') : connection === 'connecting' ? 'Connecting…' : `Offline${pending ? ` · ${pending} pending` : ''}`;
+    connection === 'denied'
+      ? 'Sync paused'
+      : connection === 'online' ? (pending ? 'Syncing…' : 'Synced') : connection === 'connecting' ? 'Connecting…' : `Offline${pending ? ` · ${pending} pending` : ''}`;
   return (
-    <span className="sync-status" role="status" aria-live="polite">
-      <span className={`sync-dot ${connection === 'online' && !pending ? 'online' : connection === 'offline' ? '' : 'connecting'}`} aria-hidden="true" />
+    <span
+      className="sync-status"
+      role="status"
+      aria-live="polite"
+      title={connection === 'denied' ? 'The server did not accept this session. Sign out and sign in again; your edits stay on this device.' : undefined}
+    >
+      <span className={`sync-dot ${connection === 'online' && !pending ? 'online' : connection === 'offline' ? '' : connection === 'denied' ? 'denied' : 'connecting'}`} aria-hidden="true" />
       {label}
     </span>
   );
@@ -51,6 +60,20 @@ export const TopBar: React.FC<{
   const activePage = activeId ? pages[activeId] : null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e: MouseEvent) => moreRef.current && !moreRef.current.contains(e.target as Node) && setMoreOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMoreOpen(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [moreOpen]);
 
   const handleExport = () => {
     if (!activePage) return;
@@ -91,30 +114,83 @@ export const TopBar: React.FC<{
         style={{ display: 'none' }}
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div className="topbar-left">
         {activePage && view !== 'graph' && view !== 'database' && view !== 'trash' && (
-          <div className="view-tabs">
-            <button
-              className={`view-tab ${view === 'page' ? 'active' : ''}`}
-              onClick={() => store.setView('page')}
-              title="Document View (AFFiNE / Obsidian doc)"
-            >
-              <FileText size={15} />
-              <span>Page</span>
-            </button>
-            <button
-              className={`view-tab ${view === 'edgeless' ? 'active' : ''}`}
-              onClick={() => store.setView('edgeless')}
-              title="Edgeless Infinite Canvas (AFFiNE whiteboard)"
-            >
-              <Layout size={15} />
-              <span>Edgeless</span>
-            </button>
-          </div>
+          <>
+            <div className="view-tabs" role="group" aria-label="Editor mode">
+              <button
+                type="button"
+                className={`view-tab ${view === 'page' ? 'active' : ''}`}
+                onClick={() => store.setView('page')}
+                title="Page mode"
+                aria-label="Page mode"
+                aria-pressed={view === 'page'}
+              >
+                <FileText size={16} />
+              </button>
+              <button
+                type="button"
+                className={`view-tab ${view === 'edgeless' ? 'active' : ''}`}
+                onClick={() => store.setView('edgeless')}
+                title="Edgeless mode"
+                aria-label="Edgeless mode"
+                aria-pressed={view === 'edgeless'}
+              >
+                <Layout size={16} />
+              </button>
+            </div>
+            <span className="topbar-title" title={activePage.title || 'Untitled'}>
+              {activePage.title || 'Untitled'}
+            </span>
+            {!activePage.deletedAt && (
+              <button
+                type="button"
+                className="btn-icon"
+                title={activePage.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                aria-label={activePage.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                aria-pressed={activePage.favorite}
+                onClick={() => store.updatePage(activePage.id, (p) => ({ ...p, favorite: !p.favorite }))}
+              >
+                <Star
+                  size={16}
+                  fill={activePage.favorite ? 'var(--accent)' : 'none'}
+                  color={activePage.favorite ? 'var(--accent)' : 'var(--text-secondary)'}
+                />
+              </button>
+            )}
+            {!activePage.deletedAt && (
+              <div className="topbar-more" ref={moreRef}>
+                <button
+                  type="button"
+                  className="btn-icon"
+                  title="More actions"
+                  aria-label="More actions"
+                  aria-haspopup="menu"
+                  aria-expanded={moreOpen}
+                  onClick={() => setMoreOpen((o) => !o)}
+                >
+                  <MoreHorizontal size={16} />
+                </button>
+                {moreOpen && (
+                  <div className="more-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); handleExport(); }}>
+                      <Download size={15} aria-hidden="true" /> Export Markdown
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); fileInputRef.current?.click(); }}>
+                      <Upload size={15} aria-hidden="true" /> Import Markdown file
+                    </button>
+                    <button type="button" role="menuitem" className="danger" onClick={() => { setMoreOpen(false); store.trash(activePage.id); }}>
+                      <Trash2 size={15} aria-hidden="true" /> Move to trash
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {(view === 'graph' || view === 'database' || view === 'trash') && (
-          <span style={{ fontWeight: 500, fontSize: '14px' }}>
+          <span className="topbar-title">
             {view === 'graph' && 'Brain View'}
             {view === 'database' && 'Database View'}
             {view === 'trash' && 'Trash'}
@@ -128,43 +204,12 @@ export const TopBar: React.FC<{
           <>
             <Presence pageId={activePage.id} />
             <div className="topbar-share">
-              <button type="button" className="btn-text" aria-haspopup="dialog" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>
+              <button type="button" className="btn-primary" aria-haspopup="dialog" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>
+                <Lock size={13} aria-hidden="true" />
                 Share
               </button>
               {shareOpen && <ShareMenu pageId={activePage.id} onClose={() => setShareOpen(false)} />}
             </div>
-            <button
-              className="btn-icon"
-              title={activePage.favorite ? 'Remove from favorites' : 'Add to favorites'}
-              aria-label={activePage.favorite ? 'Remove from favorites' : 'Add to favorites'}
-              aria-pressed={activePage.favorite}
-              onClick={() => store.updatePage(activePage.id, (p) => ({ ...p, favorite: !p.favorite }))}
-            >
-              <Star
-                size={16}
-                fill={activePage.favorite ? 'var(--accent)' : 'none'}
-                color={activePage.favorite ? 'var(--accent)' : 'var(--text-secondary)'}
-              />
-            </button>
-            <button className="btn-icon" title="Export Markdown" aria-label="Export Markdown" onClick={handleExport}>
-              <Download size={16} />
-            </button>
-            <button
-              className="btn-icon"
-              title="Import Markdown file"
-              aria-label="Import Markdown file"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload size={16} />
-            </button>
-            <button
-              className="btn-icon"
-              title="Delete Note"
-              aria-label="Move note to trash"
-              onClick={() => store.trash(activePage.id)}
-            >
-              <Trash2 size={16} />
-            </button>
           </>
         )}
 
