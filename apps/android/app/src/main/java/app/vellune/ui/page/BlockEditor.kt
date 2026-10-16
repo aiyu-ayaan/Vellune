@@ -58,6 +58,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardHide
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.automirrored.outlined.Comment
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -290,7 +291,7 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
             else fields[b.id] = TextFieldValue(ZWSP + b.text, TextRange(1))
             return
         }
-        if (prev.kind == "divider" || prev.kind == "image") {
+        if (prev.kind == "divider" || prev.kind == "image" || prev.kind == "file") {
             edit { bs -> bs.filterNot { it.id == prev.id } }
             fields[b.id] = TextFieldValue(ZWSP + b.text, TextRange(1))
             return
@@ -338,6 +339,22 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
         val at = cut.coerceAtLeast(0) + insert.length
         fields[b.id] = TextFieldValue(ZWSP + next, TextRange(at + 1))
         suggest = null
+    }
+
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val anchor = focused
+        scope.launch {
+            val (name, src) = Images.importFile(app, page.id, uri) ?: run {
+                android.widget.Toast.makeText(context, "File skipped: over 6 MB, or over 1.5 MB until this page syncs.", android.widget.Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val f = Block(kind = "file", text = name, src = src)
+            edit { bs ->
+                val at = bs.indexOfFirst { it.id == anchor }.let { if (it < 0) bs.size - 1 else it }
+                bs.take(at + 1) + f + bs.drop(at + 1)
+            }
+        }
     }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
@@ -421,6 +438,7 @@ fun DocEditor(app: Vellune, nav: AppState, page: Page, index: LinkIndex, modifie
                         onDismiss = { suggest = null },
                         onPick = { insert, kind -> applySuggestion(b, s.second, insert, kind) },
                         onImage = { applySuggestion(b, s.second, ""); picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        onFile = { applySuggestion(b, s.second, ""); filePicker.launch(arrayOf("*/*")) },
                         onTable = {
                             applySuggestion(b, s.second, "")
                             val table = Block(kind = "table", text = emptyTable())
@@ -561,6 +579,10 @@ private fun BlockRow(
         TableBlock(b.text, onText)
         return
     }
+    if (b.kind == "file") {
+        FileBlock(app, pageId, b, onDeleteBlock)
+        return
+    }
     val style: TextStyle = when (b.kind) {
         "heading" -> when (b.level ?: 1) {
             1 -> type.headlineLarge
@@ -661,6 +683,7 @@ private fun SuggestMenu(
     onDivider: () -> Unit,
     onTemplate: (Page) -> Unit,
     onTable: () -> Unit,
+    onFile: () -> Unit,
 ) {
     val q = s.query.trim()
     DropdownMenu(
@@ -675,6 +698,7 @@ private fun SuggestMenu(
                     DropdownMenuItem({ Text(k.label) }, { onPick("", k) }, trailingIcon = { Text(k.hint, color = MaterialTheme.colorScheme.outline) })
                 }
                 if (q.isEmpty() || "image picture photo".contains(q, true)) DropdownMenuItem({ Text("Image") }, onImage, leadingIcon = { Icon(Icons.Outlined.Image, null) })
+                if (q.isEmpty() || "file attachment pdf document attach".contains(q, true)) DropdownMenuItem({ Text("File") }, onFile, leadingIcon = { Icon(Icons.Outlined.AttachFile, null) })
                 if (q.isEmpty() || "table grid spreadsheet rows columns".contains(q, true)) DropdownMenuItem({ Text("Table") }, onTable, trailingIcon = { Text("|", color = MaterialTheme.colorScheme.outline) })
                 if (q.isEmpty() || "divider rule line".contains(q, true)) DropdownMenuItem({ Text("Divider") }, onDivider, trailingIcon = { Text("---", color = MaterialTheme.colorScheme.outline) })
                 if (q.isEmpty() || "today date journal".contains(q, true)) DropdownMenuItem({ Text("Today") }, { onPick("[[${todayKey()}]]", null) })
