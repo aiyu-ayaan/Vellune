@@ -14,6 +14,7 @@
 | [`sync-protocol.md`](sync-protocol.md) | **Spec:** WebSocket sync wire format, cursors, recovery. |
 | [`api.md`](api.md) | **Spec:** HTTP, admin, and WebSocket API contract (v1). |
 | [`security.md`](security.md) | **Spec:** Tenant isolation, RBAC, presigned uploads, data protection. |
+| [`self-hosting.md`](self-hosting.md) | **Guide:** Deploy the single-image self-hosted server (Docker Compose, HTTPS, backups, upgrades). |
 | [`adr/`](adr) | **Decisions:** Architecture decision records (`NNNN-short-title.md`). |
 | `notes/` | **Working notes:** Implementation designs, research, benchmarks, experiments. Create on first use. |
 | [`../TODO.md`](../TODO.md) | **Roadmap:** Milestones, task checklists, MVP status. |

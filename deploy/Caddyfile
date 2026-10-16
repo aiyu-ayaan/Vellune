@@ -1,0 +1,6 @@
+# Replace with your domain; Caddy obtains and renews the TLS certificate.
+# APP_URL in .env must be https://notes.example.com
+notes.example.com {
+	# Forwards WebSocket upgrades (/api/v1/sync) and the Host header unchanged.
+	reverse_proxy vellune:8080
+}

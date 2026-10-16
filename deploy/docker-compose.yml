@@ -1,0 +1,51 @@
+# Self-hosted Vellune. Run from this directory: cp .env.example .env && docker compose up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vellune}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-vellune}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  vellune:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: vellune:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-vellune}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vellune}
+      VELLUNE_SECRET: ${VELLUNE_SECRET:?set VELLUNE_SECRET in .env (openssl rand -hex 32)}
+      APP_URL: ${APP_URL:?set APP_URL in .env (public origin)}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      # Behind Caddy/another proxy, bind to loopback: "127.0.0.1:8080:8080"
+      - "${VELLUNE_PORT:-8080}:8080"
+
+  # Automatic HTTPS: uncomment, set the domain in Caddyfile, and change the vellune
+  # port mapping above to "127.0.0.1:8080:8080" (or remove it).
+  # caddy:
+  #   image: caddy:2-alpine
+  #   restart: unless-stopped
+  #   depends_on: [vellune]
+  #   ports: ["80:80", "443:443"]
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+
+volumes:
+  pgdata:
+  # caddy_data:
+  # caddy_config:

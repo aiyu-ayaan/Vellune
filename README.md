@@ -176,6 +176,19 @@ Or run targeted services individually:
 
 ---
 
+## 🏠 Self-hosting
+
+Run your own multi-user, end-to-end-encrypted server with one Docker Compose file (API + web app + PostgreSQL):
+
+```bash
+cd deploy && cp .env.example .env   # set POSTGRES_PASSWORD, VELLUNE_SECRET, APP_URL
+docker compose up -d
+```
+
+See [`development/Docs/self-hosting.md`](development/Docs/self-hosting.md).
+
+---
+
 ## 📖 Documentation
 
 Detailed architectural and technical specifications are available in [`development/Docs/`](development/Docs):
