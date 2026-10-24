@@ -20,7 +20,7 @@ Order is deliberate: the **pen/ink spike comes first** because it is the reason 
 
 Goal: prove palm rejection and low-latency ink on real devices before building anything else.
 
-- [ ] Android project skeleton (Kotlin, Compose, Gradle version catalog, minSdk 26)
+- [x] Android project skeleton (Kotlin, Compose, Gradle version catalog, minSdk 26)
 - [ ] Check current release notes/versions for AndroidX Graphics, Input (motion prediction), Ink; record findings in `docs/05`
 - [ ] Input trace recorder: dump `MotionEvent` streams (incl. historical samples, cancel flags) to files
 - [ ] `InputClassifier` + `PointerArbiter` as pure logic with unit tests driven by traces

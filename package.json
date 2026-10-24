@@ -1,0 +1,38 @@
+{
+  "name": "vellune-root",
+  "license": "MIT",
+  "version": "0.0.1-alpha.1",
+  "build": 1,
+  "private": true,
+  "packageManager": "pnpm@12.4.2",
+  "description": "Vellune - Self-hosted, local-first, collaborative notes",
+  "scripts": {
+    "dev": "concurrently -k -p \"[{name}]\" -n \"backend,web\" -c \"cyan,magenta\" \"pnpm run dev:backend\" \"pnpm run dev:web\"",
+    "dev:backend": "node scripts/dev-backend.mjs",
+    "start:backend": "cargo run --manifest-path crates/vellune-server/Cargo.toml",
+    "dev:web": "pnpm --filter @vellune/web dev",
+    "build": "pnpm run build:web && pnpm run build:backend",
+    "build:web": "pnpm --filter @vellune/web build",
+    "build:web:dev": "pnpm --filter @vellune/web build:dev",
+    "build:web:prod": "pnpm --filter @vellune/web build:prod",
+    "build:backend": "cargo build --release --manifest-path crates/vellune-server/Cargo.toml",
+    "android:gateway": "bash scripts/android-gateway.sh",
+    "android:dev": "bash scripts/android-dev.sh",
+    "android:build:dev": "(cd apps/android && ./gradlew :app:assembleDevDebug)",
+    "android:build:prod": "(cd apps/android && ./gradlew :app:assembleProdRelease)",
+    "dev:desktop": "pnpm --filter @vellune/desktop dev",
+    "dev:desktop:prod": "pnpm --filter @vellune/desktop dev:prod",
+    "build:desktop": "pnpm --filter @vellune/desktop build:prod",
+    "build:desktop:dev": "pnpm --filter @vellune/desktop build:dev",
+    "build:desktop:prod": "pnpm --filter @vellune/desktop build:prod",
+    "test:desktop": "pnpm --filter @vellune/desktop test",
+    "dev:docs": "pnpm --filter @vellune/docs start",
+    "build:docs": "pnpm --filter @vellune/docs build",
+    "serve:docs": "pnpm --filter @vellune/docs serve",
+    "lint": "pnpm --filter @vellune/web lint",
+    "test": "pnpm --filter @vellune/web test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

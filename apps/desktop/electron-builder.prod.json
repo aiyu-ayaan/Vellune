@@ -1,0 +1,15 @@
+{
+  "appId": "com.aiyu.vellune.desktop",
+  "productName": "Vellune",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "src/**/*",
+    "package.json"
+  ],
+  "linux": {
+    "target": ["AppImage"],
+    "category": "Office"
+  }
+}

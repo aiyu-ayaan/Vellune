@@ -1,0 +1,11 @@
+[package]
+name = "vellune-markdown"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+vellune-model = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }

@@ -1,0 +1,62 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vellune-model",
+    "crates/vellune-crdt",
+    "crates/vellune-store",
+    "crates/vellune-sync",
+    "crates/vellune-graph",
+    "crates/vellune-markdown",
+    "crates/vellune-server",
+    "crates/vellune-ffi",
+    "crates/vellune-wasm",
+]
+
+[workspace.package]
+version = "0.0.1-alpha.1"
+edition = "2024"
+license = "MIT"
+authors = ["Vellune Contributors"]
+
+[workspace.dependencies]
+vellune-model = { path = "crates/vellune-model" }
+vellune-crdt = { path = "crates/vellune-crdt" }
+vellune-store = { path = "crates/vellune-store" }
+vellune-sync = { path = "crates/vellune-sync" }
+vellune-graph = { path = "crates/vellune-graph" }
+vellune-markdown = { path = "crates/vellune-markdown" }
+
+# Async runtime & Web
+tokio = { version = "1.40", features = ["full"] }
+axum = { version = "0.7", features = ["macros", "ws"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "fs", "set-header", "compression-gzip"] }
+
+# Serialization & config
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Tracing & Errors
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+thiserror = "1.0"
+anyhow = "1.0"
+
+# CRDT & Storage
+yrs = "0.22"
+rusqlite = { version = "0.32", features = ["bundled", "blob"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
+
+# Utilities
+async-trait = "0.1"
+argon2 = { version = "0.5", features = ["std"] }
+rand = "0.8"
+sha2 = "0.10"
+tokio-util = { version = "0.7", features = ["io"] }
+futures-util = { version = "0.3", default-features = false }
+
+[profile.release]
+strip = true
+lto = "thin"

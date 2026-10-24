@@ -1,0 +1,15 @@
+[package]
+name = "vellune-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+vellune-model = { workspace = true }
+vellune-crdt = { workspace = true }
+vellune-store = { workspace = true }
+thiserror = { workspace = true }
