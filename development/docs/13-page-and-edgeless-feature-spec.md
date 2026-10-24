@@ -6,7 +6,7 @@ Tags: **Observed** (read in source), **Inferred**, **Unknown**. Scope column: **
 
 ## 1. The toggle (Observed)
 
-- One document, two views: **page** and **edgeless**. The mode is a per-document state; new docs open in page mode, and a doc remembers its primary mode (`stablePrimaryMode` in the editor entity; the persistence location is *Unknown*).
+- One document, two views: **page** and **edgeless**. The mode is a per-document state; new docs open in page mode, and a doc remembers its primary mode, stored as the built-in doc property `docPrimaryMode` (see `14` §7).
 - UI: a two-item segmented control (page icon, canvas icon) in the doc header, with tooltips "View in Edgeless Canvas" and "Page mode" plus the shortcut `Alt+S` (your screenshots).
 - Switching clears the editor selection, is blocked for trashed docs (only the current mode stays visible), and `Alt+S` is registered as a command-palette entry whose label flips ("switch to edgeless" / "switch to page").
 - Both views edit the same content: page blocks appear on the canvas as note containers, and canvas elements are not shown in page mode.
@@ -63,7 +63,7 @@ No palm rejection, no pen-only mode, no tilt, no prediction, no front-buffered i
 
 ## 6. Unknowns
 
-- Where the per-doc primary mode is stored and how a shared link chooses the mode.
+- How a shared link chooses the mode (the per-doc mode itself is a doc property, see `14`).
 - Mobile edgeless toolbar layout (touch UI code not read; `packages/frontend/mobile` not cloned).
 - Exact connector routing and mind-map layout algorithms (behaviour only; we will design our own, with determinism tests per `CLAUDE.md`).
 - Database view feature depth (filters, formulas).

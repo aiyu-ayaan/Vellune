@@ -63,7 +63,7 @@ Goal: prove palm rejection and low-latency ink on real devices before building a
 
 ## Phase 4 — Android app v0.1 (local-first notes)
 
-Feature inventory: `docs/13` §2–3.
+Feature inventory: `docs/13` §2–3 (editor) and `docs/14` (organisation).
 
 - [ ] App shell: workspace list, doc list, navigation
 - [ ] Page editor: paragraph, headings, lists, todo, quote, code, divider (Compose, IME-correct)
@@ -71,8 +71,17 @@ Feature inventory: `docs/13` §2–3.
 - [ ] Slash menu (groups per `docs/13` §3), Markdown typing shortcuts, keyboard toolbar above the IME
 - [ ] Local persistence via Rust core; offline only
 - [ ] Images/attachments as blobs
-- [ ] Trash, tags, search (FTS5)
-- [ ] Markdown export/import
+- [ ] Sidebar/all-docs: list and grid, sort, group by tag, bulk select (`docs/14` §2, §8)
+- [ ] Linked docs as sidebar children; drag a doc onto a doc appends a wikilink block (`docs/14` §1)
+- [ ] Favourites; folders (folder | link nodes, fractional order); tags with colours; manual collections (`docs/14` §3–6)
+- [ ] Doc properties panel: tags, created/updated, mode, journal date, template flag (`docs/14` §7)
+- [ ] Journal (local date) and templates for new docs and journals (`docs/14` §9)
+- [ ] Trash (soft delete, restore, permanent delete), tags, search (FTS5), quick-search palette (`docs/14` §10–11)
+- [ ] Markdown export/import; Obsidian vault import (`docs/14` §11)
+
+### Phase 4b — after v0.1
+
+- [ ] Collection filter rules, group-by, custom properties (text, number, checkbox, date), masonry view (`docs/14` §6–8)
 
 ## Phase 5 — Canvas (edgeless) on Android
 
