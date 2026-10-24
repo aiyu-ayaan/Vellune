@@ -90,3 +90,54 @@ Undo/redo is per user and groups one stroke (or one eraser drag) per step. Multi
 
 - Behaviour with Android on ChromeOS/desktop pen devices not covered yet.
 - E-ink devices (very different refresh model) out of scope for v1.
+
+## Phase 1 spike: findings and structure (2026-10-25)
+
+### Library versions checked (Google Maven, 2026-10-25)
+
+| Library | Version used | Notes |
+|---|---|---|
+| `androidx.ink:ink-*` | 1.0.0 (stable; 1.1.0-alpha10 exists) | Wet + dry rendering, stock brushes. See ADR 0005. |
+| `androidx.input:input-motionprediction` | 1.0.0 | `MotionEventPredictor.newInstance(view)`, `record(event)`, `predict()`. |
+| `androidx.graphics:graphics-core` | not used directly (1.0.4 stable, 1.1.0-beta01) | `androidx.ink` brings its own front-buffered path. |
+
+### API names verified (*verify* items above)
+
+- *Observed* (javap on the AARs): `InProgressStrokesView.startStroke(StrokeInput, Brush, strokeToViewTransform)`, `addToStroke(StrokeInputBatch, id, prediction)`, `finishStroke(StrokeInput, id)`, `cancelStroke(id)`, `removeFinishedStrokes(ids)`; `CanvasStrokeRenderer.draw(canvas, stroke, Matrix)`.
+- *Observed* (running the spike): `CanvasStrokeRenderer.draw` does not apply the matrix; the canvas must already hold it.
+- *Inferred* (platform docs, not yet tested on hardware): `MotionEvent.FLAG_CANCELED` on pointer-up exists from API 33; earlier versions only send `ACTION_CANCEL`. Tool types `TOOL_TYPE_STYLUS` (2) and `TOOL_TYPE_ERASER` (4), `BUTTON_STYLUS_PRIMARY` (32), `AXIS_TILT`, `getOrientation()`.
+- *Unknown*: whether `InProgressStrokesView` front-buffers on every API 29+ device; measure per device.
+
+### Android structure
+
+```
+apps/android
+├─ core  (pure Kotlin, JVM-tested)
+│   input/  InputEvent, InputClassifier, PointerArbiter, TraceCodec
+│   ink/    StrokeGeometry (eraser hit test)
+│   test/resources/traces/*.jsonl  (replay fixtures)
+└─ app
+    ink/        MotionEventMapper (MotionEvent → InputEvent), Brushes, InkStroke
+    ui/canvas/  InkCanvasLayout ─┬─ DryInkView (committed strokes, dot grid, culling)
+                                 └─ InProgressStrokesView (wet ink, front buffer)
+                CanvasViewModel (strokes, undo/redo, eraser sessions, save)
+    data/       CanvasRepository (JSON per canvas), SettingsRepository, TraceRecorder
+    ui/…        shell, home, settings, traces (docs/12)
+
+MotionEvent ─► MotionEventMapper ─► TraceRecorder (optional, JSONL)
+                     │
+                     ▼
+              PointerArbiter ─► Gesture ─► InkCanvasLayout
+              (:core, pure)                 ├─ StrokeStart/Move/End → InProgressStrokesView
+                                            │     + MotionEventPredictor tail (not stored)
+                                            ├─ finished stroke → DryInkView + CanvasViewModel
+                                            ├─ eraser → CanvasViewModel.eraseAt (StrokeGeometry)
+                                            └─ Transform → view matrix → viewport (saved)
+```
+
+### What the spike does not cover yet
+
+- Rotation in the two-finger transform (pan and zoom only).
+- Pixel eraser, lasso, shape snap, pencil texture.
+- Dry-layer bitmap/tile cache: every frame redraws visible strokes; measure with 10k strokes before adding one.
+- Traces in `core/src/test/resources/traces` are synthetic. Replace or extend them with device recordings (Settings → Record input traces).

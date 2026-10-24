@@ -13,22 +13,26 @@ Order is deliberate: the **pen/ink spike comes first** because it is the reason 
 - [x] Pen/input spec (`docs/05`), architecture (`docs/06`), sync (`docs/07`), data model (`docs/08`), graph (`docs/09`), self-host (`docs/10`), licensing (`docs/11`)
 - [x] ADRs 0001–0004
 - [ ] Optional: pull the AFFiNE store APK with `adb` and diff against `canary` source (REA Android tools)
-- [ ] ADR 0005: Vellune license
+- [ ] ADR 0006: Vellune license
 - [ ] ADR: content hash (BLAKE3 vs SHA-256)
 
 ## Phase 1 — Pen spike (Android, no Rust yet)
 
+App UI follows `docs/12` (Findex design language). Local dev Postgres: `docker-compose.local.dev.yml` (`pnpm db:up`), used from Phase 3.
+
 Goal: prove palm rejection and low-latency ink on real devices before building anything else.
 
 - [x] Android project skeleton (Kotlin, Compose, Gradle version catalog, minSdk 26)
-- [ ] Check current release notes/versions for AndroidX Graphics, Input (motion prediction), Ink; record findings in `docs/05`
-- [ ] Input trace recorder: dump `MotionEvent` streams (incl. historical samples, cancel flags) to files
-- [ ] `InputClassifier` + `PointerArbiter` as pure logic with unit tests driven by traces
-- [ ] Traces: palm before pen, thumb during stroke, pen lift then wrist, fast scribble, hover in/out, no-pressure device
-- [ ] Wet-ink layer (front-buffered) + dry layer (cached vector paths)
-- [ ] Motion prediction on/off comparison
-- [ ] Pan/zoom/rotate with two fingers, pen-only draw mode
-- [ ] Eraser (stylus eraser end + barrel button), stroke eraser
+- [x] Check current release notes/versions for AndroidX Graphics, Input (motion prediction), Ink; record findings in `docs/05` (ADR 0005: androidx.ink)
+- [x] Input trace recorder: dump `MotionEvent` streams (incl. historical samples, cancel flags) to files
+- [x] `InputClassifier` + `PointerArbiter` as pure logic with unit tests driven by traces
+- [x] Traces: palm before pen, thumb during stroke, pen lift then wrist, fast scribble, hover in/out, no-pressure device (synthetic)
+- [ ] Replace synthetic traces with recordings from real devices
+- [x] Wet-ink layer (front-buffered) + dry layer (cached vector paths)
+- [ ] Motion prediction on/off comparison (toggle in Settings done; measurement open)
+- [x] Pan/zoom with two fingers, pen-only draw mode
+- [ ] Two-finger rotate
+- [x] Eraser (stylus eraser end + barrel button), stroke eraser
 - [ ] Measure latency (high-speed camera) and frame time; write `docs/benchmarks/ink.md`
 - [ ] Test on ≥3 devices (active-pen tablet, USI/MPP-class, passive stylus phone)
 - [ ] Exit gate: no palm marks in the trace suite; latency and 10k-stroke pan/zoom targets from `docs/05` met or revised

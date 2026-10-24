@@ -13,7 +13,7 @@ Guide for AI agents (and humans) working in this repository. Keep it short and t
 
 ## Status
 
-Design phase complete; no code yet. Current plan: `development/TODO.md` (Phase 1 = Android pen spike). Do not assume any crate or app below exists until you see it in the tree.
+Phase 1 (Android pen spike) in progress: input arbiter in `apps/android/core`, ink canvas and Material 3 Expressive UI in `apps/android/app`. Rust crates are empty scaffolds. Plan: `development/TODO.md`. Do not assume any crate or app below exists until you see it in the tree.
 
 ## Where things are
 
@@ -22,6 +22,9 @@ Design phase complete; no code yet. Current plan: `development/TODO.md` (Phase 1
 | `development/docs/README.md` | docs index, start here |
 | `development/docs/01..03` | research on AFFiNE, its Android app, Obsidian |
 | `development/docs/04..11` | decisions and specs: native Android, pen input, architecture, sync, data model, graph, self-hosting, licensing |
+| `development/docs/12` | Android design system (Material 3 Expressive, Findex look) |
+| `apps/android/core` | pure Kotlin input pipeline + trace fixtures |
+| `apps/android/app` | Compose UI, ink canvas, local spike storage |
 | `development/docs/adr/` | architecture decision records |
 | `development/TODO.md` | live task plan |
 | `.claude/`, `.agents/` | tool/skill config, not product code |
@@ -49,17 +52,24 @@ Planned code layout (from `development/docs/06-architecture.md`): `crates/vellun
 
 ## Commands
 
-Not available yet. When code lands, put the real commands here. Expected set:
+Working now:
+
+```
+(cd apps/android && ./gradlew :core:testDebugUnitTest)   # arbiter + trace replay tests
+(cd apps/android && ./gradlew :app:assembleDevDebug)     # debug APK (dev flavor)
+pnpm db:up / pnpm db:down                                # local Postgres (docker-compose.local.dev.yml)
+```
+
+Planned, not working yet (Rust crates are empty):
 
 ```
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 cargo test --workspace
 cargo deny check
 cargo run -p vellune-server -- --data ./data
-./gradlew -p apps/android assembleDebug testDebugUnitTest
 ```
 
-Do not document a command here until it works.
+Do not move a command to "Working now" until it works.
 
 ## Working conventions
 

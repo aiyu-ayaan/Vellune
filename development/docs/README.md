@@ -17,6 +17,7 @@ Vellune: a self-hosted, local-first, collaborative notes app with Notion-style p
 | [09 Graph view spec](09-graph-view-spec.md) | links index, layout, rendering |
 | [10 Self-hosting](10-self-hosting.md) | deployment, config, ops |
 | [11 Licensing and clean-room](11-licensing-and-cleanroom.md) | what we may and may not reuse |
+| [12 Android design system](12-android-design-system.md) | Material 3 Expressive tokens, screens, accessibility |
 | [ADRs](adr/) | recorded decisions |
 
 Live plan: [`../TODO.md`](../TODO.md). AI/agent guide: [`../../CLAUDE.md`](../../CLAUDE.md).
