@@ -63,9 +63,12 @@ Goal: prove palm rejection and low-latency ink on real devices before building a
 
 ## Phase 4 — Android app v0.1 (local-first notes)
 
+Feature inventory: `docs/13` §2–3.
+
 - [ ] App shell: workspace list, doc list, navigation
 - [ ] Page editor: paragraph, headings, lists, todo, quote, code, divider (Compose, IME-correct)
 - [ ] Inline formats and `[[wikilink]]` insertion with doc picker
+- [ ] Slash menu (groups per `docs/13` §3), Markdown typing shortcuts, keyboard toolbar above the IME
 - [ ] Local persistence via Rust core; offline only
 - [ ] Images/attachments as blobs
 - [ ] Trash, tags, search (FTS5)
@@ -73,11 +76,13 @@ Goal: prove palm rejection and low-latency ink on real devices before building a
 
 ## Phase 5 — Canvas (edgeless) on Android
 
+Feature inventory and toggle behaviour: `docs/13` §1, §4.
+
 - [ ] Port ink spike into the app on top of the Rust doc model
 - [ ] Canvas elements: stroke, shape, text, sticky, image, frame, group, connector
 - [ ] Lasso select/transform; shape snap; highlighter/pencil brushes
 - [ ] Per-user undo/redo grouped per stroke
-- [ ] Page ⇄ canvas toggle on the same doc; doc-embed element
+- [ ] Page ⇄ canvas toggle on the same doc (segmented control, per-doc remembered mode, `Alt+S`); doc-embed element
 - [ ] Export canvas region to SVG/PNG/PDF
 
 ## Phase 6 — Sync in the app
