@@ -30,7 +30,10 @@
     "build:docs": "pnpm --filter @vellune/docs build",
     "serve:docs": "pnpm --filter @vellune/docs serve",
     "lint": "pnpm --filter @vellune/web lint",
-    "test": "pnpm --filter @vellune/web test"
+    "test": "pnpm --filter @vellune/web test",
+    "db:up": "docker compose -f docker-compose.local.dev.yml up -d --wait",
+    "db:down": "docker compose -f docker-compose.local.dev.yml down",
+    "db:logs": "docker compose -f docker-compose.local.dev.yml logs -f postgres"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -1,0 +1,26 @@
+# Local development database. Not for production (see development/docs/10-self-hosting.md).
+#   pnpm db:up    (docker compose -f docker-compose.local.dev.yml up -d --wait)
+# Override any value with a .env file next to this one (git-ignored).
+name: vellune-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${VELLUNE_DB_USER:-vellune}
+      POSTGRES_PASSWORD: ${VELLUNE_DB_PASSWORD:-vellune}
+      POSTGRES_DB: ${VELLUNE_DB_NAME:-vellune}
+    ports:
+      # Bound to localhost only so the dev password never faces the network.
+      - "127.0.0.1:${VELLUNE_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
