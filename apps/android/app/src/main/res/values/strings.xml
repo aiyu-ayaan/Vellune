@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- All user-visible text lives here so the app can be localised later. English is the default. -->
+<resources>
+    <string name="app_name">Vellune</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_traces">Input traces</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_pages">Pages</string>
+    <string name="nav_graph">Graph view</string>
+    <string name="nav_sync">Sync</string>
+    <string name="drawer_subtitle">Local-first notes and ink</string>
+    <string name="drawer_section_roadmap">On the roadmap</string>
+    <string name="badge_soon">Soon</string>
+
+    <!-- Home -->
+    <string name="home_subtitle">Ink, notes and ideas</string>
+    <string name="home_hero_label">Pen lab</string>
+    <string name="home_hero_pen_ready">Pen ready</string>
+    <string name="home_hero_touch_mode">Touch mode</string>
+    <string name="home_hero_summary">%1$s · prediction %2$s</string>
+    <string name="home_hero_hint">Palms and thumbs never leave a mark.</string>
+    <string name="home_section_canvases">Canvases</string>
+    <string name="home_empty_title">No canvases yet</string>
+    <string name="home_empty_body">Start one and try writing with your palm on the screen.</string>
+    <string name="canvas_default_title">Untitled canvas</string>
+    <string name="canvas_meta">%1$s · %2$s</string>
+    <plurals name="canvas_count">
+        <item quantity="one">%d canvas</item>
+        <item quantity="other">%d canvases</item>
+    </plurals>
+    <plurals name="stroke_count">
+        <item quantity="one">%d stroke</item>
+        <item quantity="other">%d strokes</item>
+    </plurals>
+    <string name="state_on">on</string>
+    <string name="state_off">off</string>
+
+    <!-- Actions -->
+    <string name="action_new_canvas">New canvas</string>
+    <string name="action_open">Open</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_redo">Redo</string>
+    <string name="action_reset_view">Reset view</string>
+    <string name="action_input_hud">Input HUD</string>
+    <string name="action_input_settings">Pen &amp; touch settings</string>
+    <string name="action_clear_canvas">Clear canvas</string>
+
+    <!-- Dialogs -->
+    <string name="rename_canvas_title">Rename canvas</string>
+    <string name="rename_canvas_label">Name</string>
+    <string name="delete_canvas_title">Delete canvas?</string>
+    <string name="delete_canvas_message">“%1$s” and all its strokes will be removed from this device.</string>
+    <string name="clear_canvas_title">Clear canvas?</string>
+    <string name="clear_canvas_message">Removes every stroke. You can undo this.</string>
+
+    <!-- Canvas -->
+    <string name="tool_pen">Pen</string>
+    <string name="tool_marker">Marker</string>
+    <string name="tool_highlighter">Highlighter</string>
+    <string name="tool_eraser">Eraser</string>
+    <string name="tool_hand">Hand</string>
+    <string name="brush_size_value">%d pt</string>
+    <string name="color_ink">Ink</string>
+    <string name="color_swatch">Colour %1$s</string>
+    <string name="zoom_percent">%d%%</string>
+    <string name="hud_pressure">p %.2f</string>
+    <string name="hud_rate">%d Hz</string>
+    <string name="hud_strokes">%d strokes</string>
+    <string name="hud_rec">● REC</string>
+
+    <!-- Input modes -->
+    <string name="mode_pen_only">Pen only</string>
+    <string name="mode_pen_and_finger">Pen + finger</string>
+    <string name="mode_finger_only">Finger only</string>
+    <!-- Short labels for the three-way button group -->
+    <string name="mode_short_pen">Pen</string>
+    <string name="mode_short_both">Both</string>
+    <string name="mode_short_finger">Touch</string>
+
+    <!-- Settings -->
+    <string name="settings_pen_touch">Pen &amp; touch</string>
+    <string name="settings_input_mode">Who draws</string>
+    <string name="settings_mode_pen_only_desc">The pen draws. One finger pans, two fingers pan and zoom.</string>
+    <string name="settings_mode_pen_and_finger_desc">Pen and finger both draw. A finger stroke waits a moment so a second finger can turn it into a pinch.</string>
+    <string name="settings_mode_finger_only_desc">For devices without a stylus. One finger draws, two fingers pan and zoom.</string>
+    <string name="settings_palm_size">Palm size</string>
+    <string name="settings_palm_size_desc">Contacts wider than %d mm are treated as a palm</string>
+    <string name="settings_lockout">Lockout after pen lift</string>
+    <string name="settings_lockout_desc">Ignore new touches for %d ms after the pen leaves the screen</string>
+    <string name="settings_prediction">Motion prediction</string>
+    <string name="settings_prediction_desc">Draw a predicted tail ahead of the pen to hide latency. Predicted points are never saved.</string>
+    <string name="settings_developer">Developer</string>
+    <string name="settings_hud">Input HUD</string>
+    <string name="settings_hud_desc">Show arbiter state, tool, pressure and sample rate on the canvas</string>
+    <string name="settings_record_traces">Record input traces</string>
+    <string name="settings_record_traces_desc">Save every pointer event of a canvas session for replay tests</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_dynamic_color">Dynamic colour</string>
+    <string name="settings_dynamic_color_desc">Use colours from your wallpaper</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %1$s · no telemetry</string>
+
+    <!-- Traces -->
+    <string name="traces_record">Record traces</string>
+    <string name="traces_intro">Each canvas session becomes one file. A wrong mark from a palm or thumb? Keep the trace: it becomes a regression test in core/src/test/resources/traces.</string>
+    <string name="traces_empty">No traces recorded yet</string>
+    <string name="traces_recorded">Recorded</string>
+    <string name="traces_meta">%1$s · %2$s</string>
+
+    <!-- Accessibility -->
+    <string name="cd_back">Back</string>
+    <string name="cd_open_drawer">Open navigation</string>
+    <string name="cd_more_options">More options</string>
+    <string name="cd_canvas_actions">Canvas actions</string>
+    <string name="cd_brush_style">Brush colour and size</string>
+    <string name="cd_canvas">Drawing canvas</string>
+</resources>

@@ -30,7 +30,7 @@ keystore.properties
 *.pem
 
 # Database & runtime data
-data/
+/data/
 data.real.bak/
 *.db
 *.db-shm
