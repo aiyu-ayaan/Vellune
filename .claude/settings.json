@@ -18,6 +18,7 @@
   },
   "enabledPlugins": {
     "ponytail@ponytail": true,
-    "ecc@ecc": true
+    "ecc@ecc": true,
+    "material-3@material-3-skill": true
   }
 }
