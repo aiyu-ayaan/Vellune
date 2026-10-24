@@ -76,3 +76,17 @@ AFFiNE is open source: read its source (shallow/sparse clone into a scratch dir,
 ## Known unknowns
 
 See "Unknowns" in `docs/01`, `docs/02` and "Open questions" in `development/TODO.md`.
+
+
+## AI Agents
+
+- Never add yourself as co-auther in any project.
+- Commit message will able have the `scope(Change) : Message` structure
+- `development/` folder is for you. Put docs in `development/docs/`; track tasks in `development/TODO.md` (create a new one if needed).
+- You are allow to update the claude.md file or any other file releated to ai brain.
+- Always use `codegraph` to scan the code.
+- For architecture changes, always add or update an architecture diagram in docs.
+
+## String
+
+- For web/desktop or backend the i18n string so that in future it will easily got migrated to any launguage. For now, we will use English as the default language. All string should be in seperate files.
