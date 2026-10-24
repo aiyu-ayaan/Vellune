@@ -51,11 +51,28 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        optIn.addAll(
+            "androidx.compose.material3.ExperimentalMaterial3Api",
+            "androidx.compose.material3.ExperimentalMaterial3ExpressiveApi",
+        )
+    }
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.androidx.input.motionprediction)
+    implementation(libs.ink.authoring)
+    implementation(libs.ink.brush)
+    implementation(libs.ink.geometry)
+    implementation(libs.ink.rendering)
+    implementation(libs.ink.strokes)
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.navigation3.runtime)
     implementation(libs.navigation3.ui)
